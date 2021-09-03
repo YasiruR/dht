@@ -1,0 +1,15 @@
+# github.com/gorilla/mux v1.8.0
+## explicit
+github.com/gorilla/mux
+# github.com/logrusorgru/aurora v0.0.0-20200102142835-e9ef32dff381
+github.com/logrusorgru/aurora
+# github.com/rs/zerolog v1.22.0
+github.com/rs/zerolog
+github.com/rs/zerolog/internal/cbor
+github.com/rs/zerolog/internal/json
+# github.com/tryfix/log v1.2.1
+## explicit
+github.com/tryfix/log
+# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+## explicit
+gopkg.in/yaml.v3
