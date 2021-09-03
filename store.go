@@ -5,7 +5,11 @@ import "sync"
 var dataStore store
 
 type store struct {
-	data sync.Map
+	data *sync.Map
+}
+
+func initStore() {
+	dataStore.data = &sync.Map{}
 }
 
 func (s *store) get(key string) (string, bool) {

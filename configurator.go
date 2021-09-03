@@ -18,22 +18,23 @@ type conf struct {
 
 var config *conf
 
-func (c *conf) load() {
+func initConfigs() {
+	config = &conf{}
 	file, err := ioutil.ReadFile(`configs.yaml`)
 	if err != nil {
 		log.Fatal(`reading config file failed`)
 	}
 
-	err = yaml.Unmarshal(file, c)
+	err = yaml.Unmarshal(file, config)
 	if err != nil {
 		log.Fatal(`unmarshalling configs failed`)
 	}
 
-	if c.PredecessorPort == `` {
-		c.PredecessorPort = strconv.Itoa(c.Port)
+	if config.PredecessorPort == `` {
+		config.PredecessorPort = strconv.Itoa(config.Port)
 	}
 
-	if c.SuccessorPort == `` {
-		c.SuccessorPort = strconv.Itoa(c.Port)
+	if config.SuccessorPort == `` {
+		config.SuccessorPort = strconv.Itoa(config.Port)
 	}
 }
