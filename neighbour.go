@@ -1,11 +1,17 @@
 package main
 
 import (
+	"context"
 	"github.com/go-ping/ping"
 	"github.com/tryfix/log"
 )
 
-func testPeerConn() {
+func testPeerConn(ctx context.Context) {
+	if !config.NeighbourCheck {
+		log.DebugContext(ctx, `checking for neighbours is disabled`)
+		return
+	}
+
 	p1, err := ping.NewPinger(config.Predecessor + `:` + config.PredecessorPort)
 	if err != nil {
 		log.Fatal(`creating new pinger failed`, config.Predecessor + `:` + config.PredecessorPort)

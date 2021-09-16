@@ -1,6 +1,8 @@
 port: 52520
 finger_table_enabled: false
+max_num_of_nodes: 16
 
+neighbour_check: false
 predecessor: "compute-1-1"
 predecessor_port: ""
 successor: "compute-1-1"

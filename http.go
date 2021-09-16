@@ -48,6 +48,8 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// todo check the corresponding node of this key
+
 	// fetching value from store
 	val, ok := dataStore.get(key)
 	if !ok {
@@ -87,6 +89,8 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// todo check the corresponding node of this key
 
 	// reading the value from request body
 	body, err := ioutil.ReadAll(r.Body)

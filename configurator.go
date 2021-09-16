@@ -10,10 +10,12 @@ import (
 type conf struct {
 	Port               int    `yaml:"port"`
 	FingerTableEnabled bool   `yaml:"finger_table_enabled"`
+	MaxNumOfNodes      int64  `yaml:"max_num_of_nodes" default:"16"`
 	Predecessor        string `yaml:"predecessor"`
 	PredecessorPort    string `yaml:"predecessor_port"`
 	Successor          string `yaml:"successor"`
 	SuccessorPort      string `yaml:"successor_port"`
+	NeighbourCheck     bool   `yaml:"neighbour_check"`
 }
 
 var config *conf
