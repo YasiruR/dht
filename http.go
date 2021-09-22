@@ -9,11 +9,14 @@ import (
 	"strconv"
 )
 
+// error definitions
 const (
-	errParamKey   = `fetching key param failed`
-	invalidKey    = `requested key does not exist`
+	errParamKey = `invalid path parameter (key)`
+	errEncode   = `encoding error response failed`
+	errBucket   = `checking bucket failed`
+
+	errStore      = `requested key does not exist in store`
 	errReadBody   = `failed to read request body`
-	errEncode     = `encoding error response failed`
 	errUnmarshall = `unmarshalling request body failed`
 )
 
@@ -25,11 +28,11 @@ type res struct {
 
 func initServer() {
 	r := mux.NewRouter()
-	r.HandleFunc(`/storage/key`, retrieveVal).Methods(http.MethodGet)
-	r.HandleFunc(`/storage/key`, storeVal).Methods(http.MethodPut)
+	r.HandleFunc(`/storage/{key}`, retrieveVal).Methods(http.MethodGet)
+	r.HandleFunc(`/storage/{key}`, storeVal).Methods(http.MethodPut)
 	// todo neighbours
 
-	log.Fatal(http.ListenAndServe(":" + strconv.Itoa(config.Port), r))
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(config.Port), r))
 }
 
 func retrieveVal(w http.ResponseWriter, r *http.Request) {
@@ -48,16 +51,32 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// todo check the corresponding node of this key
+	includes, err := node.checkKey(key)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response.Error = errBucket
+		log.Error(err.Error(), errBucket, key)
+
+		err = json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Error(errEncode, r.URL.String())
+		}
+		return
+	}
+
+	if !includes {
+		// pass to the successor
+		// return the response
+	}
 
 	// fetching value from store
 	val, ok := dataStore.get(key)
 	if !ok {
-		log.Error(invalidKey, key)
 		w.WriteHeader(http.StatusBadRequest)
+		response.Error = errStore
+		log.Error(errStore, key)
 
-		response.Error = invalidKey
-		err := json.NewEncoder(w).Encode(response)
+		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
 			log.Error(errEncode, r.URL.String())
 		}
@@ -67,7 +86,7 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 	// writing the response
 	w.WriteHeader(http.StatusOK)
 	response.Value = val
-	err := json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Error(errEncode, r.URL.String())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -90,7 +109,23 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// todo check the corresponding node of this key
+	includes, err := node.checkKey(key)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response.Error = errBucket
+		log.Error(err.Error(), errBucket, key)
+
+		err := json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Error(errEncode, r.URL.String())
+		}
+		return
+	}
+
+	if !includes {
+		// pass to the successor
+		// return when the response returned - check if this needs to wait or just can pass
+	}
 
 	// reading the value from request body
 	body, err := ioutil.ReadAll(r.Body)
