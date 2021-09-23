@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"dht/logger"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/tryfix/log"
 	"math/big"
@@ -60,23 +59,21 @@ func (n *Node) checkKey(key string) (bool, error) {
 		return false, err
 	}
 
-	log.Debug(fmt.Sprintf(`key: %s bucket_id: %d`, key, bucket))
+	logger.Log.Debug(fmt.Sprintf(`key: %s bucket_id: %d`, key, bucket))
 
 	// handling the first node
 	if n.id < n.predId {
-		if bucket > n.predId || bucket < n.id {
+		if bucket >= n.predId || bucket < n.id {
 			return true, nil
 		}
-
-		logger.Log.Error(errors.New(`first node received an invalid key`), fmt.Sprintf(`node: %d, key bucket: %d, pred id: %d`, n.id, bucket, n.predId))
-		return false, errors.New(`first node received an invalid key`)
-	}
-
-	if bucket >= n.id {
 		return false, nil
 	}
 
-	return true, nil
+	if bucket < n.id && bucket >= n.predId {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func bucketId(key string) (int, error) {
