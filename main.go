@@ -39,17 +39,9 @@ func main() {
 //	}
 //}
 //
-//func bucketId(key string) (int64, error) {
-//	h := sha256.Sum256([]byte(key))
-//	//fmt.Println(`hex : `, string(h[:]), hex.EncodeToString(h[:]))
-//	//val, err := strconv.ParseUint(hex.EncodeToString(h[:]), 16, 64)
-//	//if err != nil {
-//	//	logger.Log.Error(err)
-//	//	return 0, err
-//	//}
-//	//return int(val % 16), nil
-//
+//func bucketId(key string) (int, error) {
+//	hexVal := sha256.Sum256([]byte(key))
 //	n := new(big.Int)
-//	n.SetString(hex.EncodeToString(h[:]), 16)
-//	return int64(n.Uint64()%16), nil
+//	n.SetString(hex.EncodeToString(hexVal[:]), 16)
+//	return int(n.Uint64() % 16), nil
 //}

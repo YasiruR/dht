@@ -97,7 +97,7 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		val, err = client.proceedGetKey(r)
+		val, err = client.proceedGetKey(key, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			res.Error = err.Error()
@@ -113,7 +113,8 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 
 	// writing the response
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(val)
+	//err = json.NewEncoder(w).Encode(val)
+	_, err = w.Write([]byte(val))
 	if err != nil {
 		logger.Log.Error(err, errEncode, r.URL.String())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -151,7 +152,7 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !includes {
-		status, err := client.proceedStoreKey(r)
+		status, err := client.proceedStoreKey(key, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			res.Error = err.Error()

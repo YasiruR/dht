@@ -15,20 +15,15 @@ import (
 )
 
 type Client struct {
-	url    *url.URL
+	url string
 	*http.Client
 }
 
 var client *Client
 
 func InitClient(ctx context.Context) {
-	u, err := url.Parse(`http://` + Config.Successor + `:` + Config.SuccessorPort + `/storage/key`)
-	if err != nil {
-		log.FatalContext(ctx, err, `failed parsing successor url`)
-	}
-
 	client = &Client{
-		url:    u,
+		url:    `http://` + Config.Successor + `:` + Config.SuccessorPort + `/storage/`,
 		Client: &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
 	}
 	logger.Log.InfoContext(ctx, `client initiated for neighbour requests`)
@@ -63,9 +58,15 @@ func TestPeerConn(ctx context.Context) {
 	}
 }
 
-func (c *Client) proceedGetKey(req *http.Request) (string, error) {
+func (c *Client) proceedGetKey(key string, req *http.Request) (string, error) {
+	u, err := url.Parse(c.url + key)
+	if err != nil {
+		log.Error(err, `failed parsing successor url`)
+		return "", err
+	}
+
 	req.RequestURI = ""
-	req.URL = c.url
+	req.URL = u
 	res, err := c.Client.Do(req)
 	if err != nil {
 		return "", err
@@ -82,13 +83,19 @@ func (c *Client) proceedGetKey(req *http.Request) (string, error) {
 		return "", err
 	}
 
+	logger.Log.Debug(fmt.Sprintf(`proceeding %s for get key request from %s`, string(bytes), Config.Successor))
 	return string(bytes), nil
 }
 
-func (c *Client) proceedStoreKey(req *http.Request) (int, error) {
-	req.RequestURI = ""
-	req.URL = c.url
+func (c *Client) proceedStoreKey(key string, req *http.Request) (int, error) {
+	u, err := url.Parse(c.url + key)
+	if err != nil {
+		log.Error(err, `failed parsing successor url`)
+		return 0, err
+	}
 
+	req.RequestURI = ""
+	req.URL = u
 	res, err := c.Client.Do(req)
 	if err != nil {
 		return 0, err
@@ -100,6 +107,7 @@ func (c *Client) proceedStoreKey(req *http.Request) (int, error) {
 		return 0, extractError(res)
 	}
 
+	logger.Log.Debug(fmt.Sprintf(`store key:%s was proceeded successfully to %s`, key, Config.Successor))
 	return res.StatusCode, nil
 }
 

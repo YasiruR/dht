@@ -50,14 +50,17 @@ func InitNode(ctx context.Context) {
 	}
 
 	node = &Node{hostname: hostname, id: id, predId: pId, sucId: sId}
-	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id=%d, successor=%d and predecessor=%d`, hostname, id, sId, pId))
+	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id=%d, predecessor=%d and successor=%d `, hostname, id, pId, sId))
 }
 
 func (n *Node) checkKey(key string) (bool, error) {
 	bucket, err := bucketId(key)
 	if err != nil {
-		return false, fmt.Errorf(err.Error(), `validating key failed`)
+		logger.Log.Error(err, `validating key failed`)
+		return false, err
 	}
+
+	log.Debug(fmt.Sprintf(`key: %s bucket_id: %d`, key, bucket))
 
 	// handling the first node
 	if n.id < n.predId {
@@ -65,6 +68,7 @@ func (n *Node) checkKey(key string) (bool, error) {
 			return true, nil
 		}
 
+		logger.Log.Error(errors.New(`first node received an invalid key`), fmt.Sprintf(`node: %d, key bucket: %d, pred id: %d`, n.id, bucket, n.predId))
 		return false, errors.New(`first node received an invalid key`)
 	}
 
