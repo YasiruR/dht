@@ -1,17 +1,55 @@
 package main
 
 import (
+	"dht/chord"
 	"github.com/google/uuid"
-	"github.com/tryfix/traceable-context"
+	traceableContext "github.com/tryfix/traceable-context"
 )
 
 func main() {
-	ctx := traceable_context.WithUUID(uuid.New())
+	ctx := traceableContext.WithUUID(uuid.New())
 
-	initConfigs()
-	if config.NeighbourCheck {
-		testPeerConn(ctx)
+	chord.InitConfigs(ctx)
+	chord.InitClient(ctx)
+	if chord.Config.NeighbourCheck {
+		chord.TestPeerConn(ctx)
 	}
-	initStore()
-	initServer()
+	chord.InitStore(ctx)
+	chord.InitNode(ctx)
+	chord.InitServer(ctx)
 }
+
+
+
+
+//func main() {
+//	list := []string{
+//		"111",
+//		//"compute-3-21", "compute-3-23", "compute-3-28", "compute-3-0",
+//		//"compute-6-15", "compute-6-16", "compute-6-17", "compute-6-18", "compute-6-19", "compute-6-21", "compute-6-22", "compute-6-34",
+//		//"compute-8-5", "compute-8-6", "compute-8-7", "compute-8-8",
+//	}
+//
+//	for _, n := range list {
+//		id, err := bucketId(n)
+//		if err != nil {
+//			//log.Fatal(err)
+//		}
+//		fmt.Println(n + ` = ` + strconv.Itoa(int(id)))
+//	}
+//}
+//
+//func bucketId(key string) (int64, error) {
+//	h := sha256.Sum256([]byte(key))
+//	//fmt.Println(`hex : `, string(h[:]), hex.EncodeToString(h[:]))
+//	//val, err := strconv.ParseUint(hex.EncodeToString(h[:]), 16, 64)
+//	//if err != nil {
+//	//	logger.Log.Error(err)
+//	//	return 0, err
+//	//}
+//	//return int(val % 16), nil
+//
+//	n := new(big.Int)
+//	n.SetString(hex.EncodeToString(h[:]), 16)
+//	return int64(n.Uint64()%16), nil
+//}
