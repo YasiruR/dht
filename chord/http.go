@@ -41,7 +41,12 @@ func InitServer(ctx context.Context) {
 }
 
 func getNeighbours(w http.ResponseWriter, r *http.Request) {
-	res := []string{Config.Predecessor + `:` + Config.PredecessorPort, Config.Successor + `:` + Config.SuccessorPort}
+	var res []string
+	if Config.FingerTableEnabled {
+		res = Config.Nodes
+	} else {
+		res = []string{Config.Predecessor + `:` + Config.PredecessorPort, Config.Successor + `:` + Config.SuccessorPort}
+	}
 
 	// writing the response
 	w.WriteHeader(http.StatusOK)

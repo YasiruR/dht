@@ -6,7 +6,9 @@ import (
 	"dht/logger"
 	"encoding/hex"
 	"fmt"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/tryfix/log"
+	"math"
 	"math/big"
 	"os"
 )
@@ -16,6 +18,8 @@ type Node struct {
 	id       int
 	predId   int
 	sucId    int
+
+	fingerTable map[int]string
 }
 
 var node *Node
@@ -48,7 +52,7 @@ func InitNode(ctx context.Context) {
 		log.Fatal(err, `failed to get the id of the successor node'`)
 	}
 
-	node = &Node{hostname: hostname, id: id, predId: pId, sucId: sId}
+	node = &Node{hostname: hostname, id: id, predId: pId, sucId: sId, fingerTable: fingerTable(ctx, id)}
 	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id=%d, predecessor=%d and successor=%d `, hostname, id, pId, sId))
 }
 
@@ -80,8 +84,36 @@ func bucketId(key string) (int, error) {
 	hexVal := sha256.Sum256([]byte(key))
 	n := new(big.Int)
 	n.SetString(hex.EncodeToString(hexVal[:]), 16)
-	return int(n.Uint64()%16), nil
+	return int(n.Uint64() % 16), nil
 }
+
+func fingerTable(ctx context.Context, nodeId int) map[int]string {
+	if !Config.FingerTableEnabled {
+		return nil
+	}
+
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"Finger ID", "Successor ID", "Node"})
+
+	ft := make(map[int]string)
+	for i, host := range Config.Nodes {
+		hostId, err := bucketId(host)
+		if err != nil {
+			logger.Log.FatalContext(ctx, err, `finger table init failed`)
+		}
+
+		fingerId := nodeId + int(math.Pow(2.0, float64(i)))
+		ft[fingerId] = host
+
+		t.AppendRow(table.Row{fingerId, hostId, host})
+	}
+
+	fmt.Println(fmt.Sprintf(`Finger table of node %d:`, nodeId))
+	t.Render()
+	return ft
+}
+
 
 func join() {
 	// compute id
