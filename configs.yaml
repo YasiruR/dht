@@ -1,7 +1,8 @@
 # service configs
 port: 52520
 max_num_of_nodes: 16
-request_timeout: 2
+request_timeout_sec: 2
+ttl_min: 180
 
 # neighbour configs
 finger_table_enabled: false

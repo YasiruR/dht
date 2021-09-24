@@ -25,11 +25,6 @@ const (
 	errUnmarshall = `unmarshalling request body failed`
 )
 
-//
-//type response struct {
-//	Error string `json:"error"`
-//}
-
 func InitServer(ctx context.Context) {
 	r := mux.NewRouter()
 	r.HandleFunc(`/storage/{key}`, retrieveVal).Methods(http.MethodGet)
