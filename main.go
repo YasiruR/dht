@@ -2,12 +2,20 @@ package main
 
 import (
 	"dht/chord"
+	"dht/logger"
 	"github.com/google/uuid"
 	traceableContext "github.com/tryfix/traceable-context"
 )
 
 func main() {
+
+	// todo get neighbours by args
+	// todo add a ttl
 	ctx := traceableContext.WithUUID(uuid.New())
+
+	// init logger
+	logger.InitConfigs(ctx)
+	logger.Init()
 
 	chord.InitConfigs(ctx)
 	chord.InitClient(ctx)
@@ -20,11 +28,9 @@ func main() {
 }
 
 
-
-
 //func main() {
 //	list := []string{
-//		"111",
+//		"091",
 //		//"compute-3-21", "compute-3-23", "compute-3-28", "compute-3-0",
 //		//"compute-6-15", "compute-6-16", "compute-6-17", "compute-6-18", "compute-6-19", "compute-6-21", "compute-6-22", "compute-6-34",
 //		//"compute-8-5", "compute-8-6", "compute-8-7", "compute-8-8",

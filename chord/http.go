@@ -4,8 +4,11 @@ import (
 	"context"
 	"dht/logger"
 	"encoding/json"
+	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/tryfix/log"
+	traceableContext "github.com/tryfix/traceable-context"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -22,17 +25,15 @@ const (
 	errUnmarshall = `unmarshalling request body failed`
 )
 
-type response struct {
-	Error string `json:"error"`
-}
+//
+//type response struct {
+//	Error string `json:"error"`
+//}
 
 func InitServer(ctx context.Context) {
 	r := mux.NewRouter()
-	//r.HandleFunc(`/storage/{key}`, func(writer http.ResponseWriter, request *http.Request) {
-	//	fmt.Println("RECEIVED")
-	//}).Methods(http.MethodPost)
 	r.HandleFunc(`/storage/{key}`, retrieveVal).Methods(http.MethodGet)
-	r.HandleFunc(`/storage/{key}`, storeVal).Methods(http.MethodPost)
+	r.HandleFunc(`/storage/{key}`, storeVal).Methods(http.MethodPut)
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
 	logger.Log.InfoContext(ctx, `initializing http server`)
 
@@ -52,18 +53,17 @@ func getNeighbours(w http.ResponseWriter, r *http.Request) {
 }
 
 func retrieveVal(w http.ResponseWriter, r *http.Request) {
-	logger.Log.Debug(`request received for get key`)
-	var res response
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for get key`)
+
 	// fetching the key
 	key, ok := mux.Vars(r)[`key`]
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
-		res.Error = errParamKey
-		logger.Log.Error(errParamKey, r.URL.String())
-
-		err := json.NewEncoder(w).Encode(res)
+		logger.Log.ErrorContext(ctx, errParamKey, r.URL.String())
+		_, err := w.Write([]byte(`invalid url with param key`))
 		if err != nil {
-			logger.Log.Error(err, errEncode, r.URL.String())
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		}
 		return
 	}
@@ -71,69 +71,63 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 	includes, err := node.checkKey(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res.Error = errBucket
-		logger.Log.Error(err, errBucket, key)
-
-		err = json.NewEncoder(w).Encode(res)
+		logger.Log.ErrorContext(ctx, err, errBucket, key)
+		_, err = w.Write([]byte(errBucket))
 		if err != nil {
-			logger.Log.Error(err, errEncode, r.URL.String())
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		}
 		return
 	}
 
 	var val string
+	var statusCode int
 	if includes {
 		// fetching value from store
 		val, ok = dataStore.get(key)
 		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			res.Error = errStore
-			logger.Log.Error(errStore, key)
-
-			err = json.NewEncoder(w).Encode(res)
+			w.WriteHeader(http.StatusNotFound)
+			logger.Log.TraceContext(ctx, errStore, key)
+			_, err = w.Write([]byte(fmt.Sprintf(`No object with key '%s' on this node`, key)))
 			if err != nil {
-				logger.Log.Error(err, errEncode, r.URL.String())
+				logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 			}
 			return
 		}
+		statusCode = http.StatusOK
 	} else {
-		val, err = client.proceedGetKey(key, r)
+		val, statusCode, err = client.proceedGetKey(key, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			res.Error = err.Error()
-			logger.Log.Error(err, key)
-
-			err = json.NewEncoder(w).Encode(res)
+			logger.Log.ErrorContext(ctx, err, key)
+			_, err = w.Write([]byte(err.Error()))
 			if err != nil {
-				logger.Log.Error(err, errEncode, r.URL.String())
+				logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 			}
 			return
 		}
 	}
 
 	// writing the response
-	w.WriteHeader(http.StatusOK)
-	//err = json.NewEncoder(w).Encode(val)
+	w.WriteHeader(statusCode)
 	_, err = w.Write([]byte(val))
 	if err != nil {
-		logger.Log.Error(err, errEncode, r.URL.String())
+		logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
 func storeVal(w http.ResponseWriter, r *http.Request) {
-	logger.Log.Debug(`request received for store key`)
-	var res response
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for store key`)
+
 	// fetching the key
 	key, ok := mux.Vars(r)[`key`]
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
-		res.Error = errParamKey
 		logger.Log.Error(errParamKey, r.URL.String())
-
-		err := json.NewEncoder(w).Encode(res)
+		_, err := w.Write([]byte(`invalid url with param key`))
 		if err != nil {
-			logger.Log.Error(err, errEncode, r.URL.String())
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		}
 		return
 	}
@@ -141,12 +135,10 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 	includes, err := node.checkKey(key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res.Error = errBucket
-		logger.Log.Error(err, errBucket, key)
-
-		err = json.NewEncoder(w).Encode(res)
+		logger.Log.ErrorContext(ctx, err, errBucket, key)
+		_, err = w.Write([]byte(err.Error()))
 		if err != nil {
-			logger.Log.Error(err, errEncode, r.URL.String())
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		}
 		return
 	}
@@ -155,12 +147,10 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 		status, err := client.proceedStoreKey(key, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			res.Error = err.Error()
-			logger.Log.Error(err, key)
-
-			err = json.NewEncoder(w).Encode(res)
+			logger.Log.ErrorContext(ctx, err, errBucket, key)
+			_, err = w.Write([]byte(errBucket))
 			if err != nil {
-				logger.Log.Error(err, errEncode, r.URL.String())
+				logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 			}
 			return
 		}
@@ -173,12 +163,10 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res.Error = errReadBody
-		logger.Log.Error(err, errReadBody, key)
-
-		err = json.NewEncoder(w).Encode(res)
+		logger.Log.ErrorContext(ctx, err, errReadBody, key)
+		_, err = w.Write([]byte(err.Error()))
 		if err != nil {
-			logger.Log.Error(err, errEncode, r.URL.String())
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		}
 		return
 	}

@@ -3,7 +3,6 @@ package chord
 import (
 	"context"
 	"dht/logger"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-ping/ping"
@@ -58,33 +57,33 @@ func TestPeerConn(ctx context.Context) {
 	}
 }
 
-func (c *Client) proceedGetKey(key string, req *http.Request) (string, error) {
+func (c *Client) proceedGetKey(key string, req *http.Request) (string, int, error) {
 	u, err := url.Parse(c.url + key)
 	if err != nil {
 		log.Error(err, `failed parsing successor url`)
-		return "", err
+		return "", 0, err
 	}
 
 	req.RequestURI = ""
 	req.URL = u
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return "", extractError(res)
+		return "", res.StatusCode, extractError(res)
 	}
 
 	bytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return "", res.StatusCode, err
 	}
 
 	logger.Log.Debug(fmt.Sprintf(`proceeding %s for get key request from %s`, string(bytes), Config.Successor))
-	return string(bytes), nil
+	return string(bytes), res.StatusCode, nil
 }
 
 func (c *Client) proceedStoreKey(key string, req *http.Request) (int, error) {
@@ -117,11 +116,5 @@ func extractError(res *http.Response) error {
 		return fmt.Errorf(err.Error(), `reading err response body failed`)
 	}
 
-	var msg response
-	err = json.Unmarshal(bytes, &msg)
-	if err != nil {
-		return fmt.Errorf(err.Error(), `unmarshalling err response failed`)
-	}
-
-	return errors.New(msg.Error)
+	return errors.New(string(bytes))
 }
