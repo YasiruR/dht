@@ -27,5 +27,5 @@ func InitConfigs(ctx context.Context) {
 		log.Fatal(`unmarshalling configs failed`)
 	}
 
-	log.InfoContext(ctx, `configurations initialized`)
+	log.InfoContext(ctx, `log configurations initialized`)
 }

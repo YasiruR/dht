@@ -15,7 +15,7 @@ func main() {
 
 	// init logger
 	logger.InitConfigs(ctx)
-	logger.Init()
+	logger.Init(ctx)
 
 	chord.InitConfigs(ctx)
 	chord.InitClient(ctx)
@@ -30,7 +30,7 @@ func main() {
 
 //func main() {
 //	list := []string{
-//		"091",
+//		"assignment",
 //		//"compute-3-21", "compute-3-23", "compute-3-28", "compute-3-0",
 //		//"compute-6-15", "compute-6-16", "compute-6-17", "compute-6-18", "compute-6-19", "compute-6-21", "compute-6-22", "compute-6-34",
 //		//"compute-8-5", "compute-8-6", "compute-8-7", "compute-8-8",
