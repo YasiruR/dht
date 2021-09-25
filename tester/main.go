@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/tryfix/log"
 	"net/http"
 	"os"
 	"strconv"
@@ -97,8 +98,13 @@ func main() {
 			}
 			wg.Add(1)
 			go func(req *http.Request, wg *sync.WaitGroup) {
-				_, _ = client.Do(req)
+				res, err := client.Do(req)
 				wg.Done()
+				if err != nil {
+					log.Error(err)
+				} else if res.StatusCode != http.StatusOK {
+					log.Error(res.StatusCode)
+				}
 			}(req, wg)
 			counter++
 		}

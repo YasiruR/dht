@@ -16,6 +16,7 @@ type Node struct {
 	id       int
 	predId   int
 	sucId    int
+	single   bool
 }
 
 var node *Node
@@ -24,7 +25,7 @@ var node *Node
 func InitNode(ctx context.Context) {
 	osName, err := os.Hostname()
 	if err != nil {
-		log.Fatal(err, `failed to get the hostname of the node`)
+		log.FatalContext(ctx, err, `failed to get the hostname of the node`)
 	}
 
 	if len(osName) < 6 {
@@ -35,24 +36,37 @@ func InitNode(ctx context.Context) {
 
 	id, err := bucketId(hostname)
 	if err != nil {
-		log.Fatal(err, `failed to get the id of the node'`)
+		log.FatalContext(ctx, err, `failed to get the id of the node'`)
 	}
 
 	pId, err := bucketId(Config.Predecessor)
 	if err != nil {
-		log.Fatal(err, `failed to get the id of the predecessor node'`)
+		log.FatalContext(ctx, err, `failed to get the id of the predecessor node'`)
 	}
 
 	sId, err := bucketId(Config.Successor)
 	if err != nil {
-		log.Fatal(err, `failed to get the id of the successor node'`)
+		log.FatalContext(ctx, err, `failed to get the id of the successor node'`)
 	}
 
-	node = &Node{hostname: hostname, id: id, predId: pId, sucId: sId}
+	if (Config.Successor == "" && Config.Predecessor != "") || (Config.Successor != "" && Config.Predecessor == "") {
+		log.FatalContext(ctx, `one of predecessor/successor is null`)
+	}
+
+	var singleNode bool
+	if Config.Successor == "" && Config.Predecessor == "" {
+		singleNode = true
+	}
+
+	node = &Node{hostname: hostname, id: id, predId: pId, sucId: sId, single: singleNode}
 	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id=%d, predecessor=%d and successor=%d `, hostname, id, pId, sId))
 }
 
 func (n *Node) checkKey(key string) (bool, error) {
+	if n.single {
+		return true, nil
+	}
+
 	bucket, err := bucketId(key)
 	if err != nil {
 		logger.Log.Error(err, `validating key failed`)
