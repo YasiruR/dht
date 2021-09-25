@@ -19,7 +19,7 @@ predecessor_port: ""
 successor: "compute-2-1"
 successor_port: ""
 ```
-NOTE: Ports can be given null if they are same as the corresponding node    
+NOTE: Ports can be given null if they are same as the corresponding node
 4. Run the executable file
 
 ## Todo
