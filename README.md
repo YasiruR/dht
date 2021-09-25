@@ -19,8 +19,20 @@ predecessor_port: ""
 successor: "compute-2-1"
 successor_port: ""
 ```
-NOTE: Ports can be given null if they are same as the corresponding node
+NOTE: Ports can be given null if they are same as the corresponding node   
 4. Run the executable file
+
+## Tester
+
+A separate testing client is implemented and can be found in tester directory to
+test this distributed key-value store. Follow the steps mentioned below to execute 
+tester.
+
+1. `cd tester/`
+2. `go build`
+3. Move this executable file to a node in the cluster
+4. `./tester <HTTP_method_type> <host:port> <number_of_requests>`     
+  Note: HTTP method type should either be GET or PUT
 
 ## Todo
 

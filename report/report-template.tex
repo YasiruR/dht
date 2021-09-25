@@ -3,10 +3,13 @@
     twocolumn,
 ]{article}
 
+% Table insertions
+% --------------------------------------------------
+\usepackage{graphics}
+
 % Image insertions
 % --------------------------------------------------
 \usepackage{graphicx}
-\usepackage{graphics}
 \usepackage[belowskip=-3pt,aboveskip=8pt]{caption}
 \graphicspath{{./images/}}
 
@@ -173,7 +176,7 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 			\hline
 			Number of nodes &\multicolumn{1}{|c|}{Node IDs} \\
 			\hline
-			1 & 0 \\ 
+			1 & 10 \\ 
 			\hline
 			2 & 0, 7 \\
 			\hline
@@ -193,9 +196,45 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 \begin{table}[!ht]
 	\centering
 	\resizebox{\columnwidth}{!}{%
-		\begin{tabular}{|c | c | c|} 
+		\begin{tabular}{|c | c | c | c|} 
 			\hline
-			Number of nodes & Size of load (No. of requests) & Average time (s) \\
+			Number of nodes & Size of load (No. of requests) & GET - Average time (ms) & PUT - Average time (ms) \\
+			\hline
+			& 16 &  &  \\
+			\cline{2-4}
+			1 & 100 & 0.09557974 & 0.0995189 \\
+			\cline{2-4}
+			& 1000 & 0.058 & 0.062 \\
+			\hline
+			& 16 & 0.345 & 0.3125 \\
+			\cline{2-4}
+			2 & 100 & 0.12 & 0.11 \\
+			\cline{2-4}
+			& 1000 & 0.065 & 0.064 \\
+			\hline
+			& 16 & & \\
+			\cline{2-4}
+			4 & 100 & & \\
+			\cline{2-4}
+			& 1000 & & \\
+			\cline{2-4}
+			& 10000 & & \\
+			\hline
+			& 1 & & \\
+			\cline{2-4}
+			8 & 100 & & \\
+			\cline{2-4}
+			& 1000 & & \\
+			\cline{2-4}
+			& 10000 & & \\
+			\hline
+			& 1 & & \\
+			\cline{2-4}
+			16 & 100 & & \\
+			\cline{2-4}
+			& 1000 & & \\
+			\cline{2-4}
+			& 10000 & & \\
 			\hline
 		\end{tabular}%
 	}
