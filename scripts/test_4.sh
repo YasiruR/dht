@@ -48,4 +48,3 @@ if curl -X GET -H "Content-Type: text/plain" compute-6-17:52520/storage/dht | gr
 else
   echo "key=0 not ok"
 fi
-
