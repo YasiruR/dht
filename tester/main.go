@@ -114,9 +114,9 @@ func main() {
 		}
 
 	wg.Wait()
-	elapsedTime := time.Since(startTime).Seconds()
+	elapsedTime := time.Since(startTime).Milliseconds()
 	fmt.Println(`Type of request: `, typ)
 	fmt.Println(`Number of requests: `, numOfReqs)
-	fmt.Println(`Total time (s): `, elapsedTime)
-	fmt.Println(`Average time per request (s): `, elapsedTime/float64(numOfReqs))
+	fmt.Println(`Total time (ms): `, elapsedTime)
+	fmt.Println(`Average time per request (ms): `, float64(elapsedTime)/float64(numOfReqs))
 }
