@@ -80,7 +80,7 @@ func bucketId(key string) (int, error) {
 	hexVal := sha256.Sum256([]byte(key))
 	n := new(big.Int)
 	n.SetString(hex.EncodeToString(hexVal[:]), 16)
-	return int(n.Uint64()%16), nil
+	return int(n.Uint64() % uint64(Config.MaxNumOfNodes)), nil
 }
 
 func join() {
