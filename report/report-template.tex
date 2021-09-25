@@ -6,6 +6,7 @@
 % Image insertions
 % --------------------------------------------------
 \usepackage{graphicx}
+\usepackage{graphics}
 \usepackage[belowskip=-3pt,aboveskip=8pt]{caption}
 \graphicspath{{./images/}}
 
@@ -60,7 +61,7 @@
 
 \section{Introduction}
 
-The primary objective of this study is to build a system of distributed nodes acting as a single key-value store with the assistance of a distributed hash table 'chord' which uses a ring network of individual nodes with distributed memory each with the knowledge of only a partition of the entire network. This store exposes the following HTTP endpoints for querying and debugging purposes.
+The primary objective of this study is to build a system of distributed nodes acting as a single key-value store with the assistance of a distributed hash table 'chord', which uses a ring network of individual nodes with distributed memory each with the knowledge of only a partition of the entire network. This store exposes the following HTTP endpoints for querying and debugging purposes.
 
 \begin{itemize}
 	\item PUT /storage/key - to store a value provided in the raw body
@@ -77,7 +78,7 @@ Each individual node in the network is given an id based on the SHA256 hash valu
 \begin{figure}[!ht]
 	\centering
 	\includegraphics[width=7.5cm]{16-structure.png}
-	\caption{Fig.1 Ring structure with 16-nodes}
+	\caption{Ring structure with 16-nodes}
 \end{figure}
 
 Each node is only aware of its neighbours, i.e. predecessor and successor. These values can be configured before the execution of a node. \\
@@ -86,9 +87,9 @@ Whenever a query is received by a node, it initially checks whether the requeste
 
 \subsection{Implementation}
 
-Golang was used for the implementation of chord with a flat-hierarchical code structure and different layers for each functionality. HTTP endpoints listed previously are implemented in http.go while node.go contains details (node id, predecessor, successor) related with the node along with validating key function. SHA256 was used for hashing of both key and node id to match with relevant buckets. A separate HTTP client was used in neighbour.go to proceed any request with a key that does not belong to the corresponding node. All key-value entry pairs are stored in an in-memory map which is specifically designed for concurrent use.\\
+Golang was used for the implementation of chord with a flat-hierarchical code structure and different layers for each functionality. HTTP endpoints listed previously were implemented in HTTP layer while node layer contains details (node id, predecessor, successor) related with the node along with validating key function. SHA256 was used for hashing of both key and node id to match with relevant buckets. A separate HTTP client was used in neighbour layer to proceed any request with a key that does not belong to the corresponding node. All key-value entry pairs are stored in an in-memory map which is specifically designed for concurrent use.\\
 
-A sample set is given below for the configuration values of parameters required by the implementation in configs.yaml but however user is allowed to provide his own desired values for service configurations. Predecessor and successor ports can be given null if they are same as the port of current node.
+A sample set is given below for the configuration values of parameters required by the implementation but however user is allowed to provide his own desired values for service configurations. Predecessor and successor ports can be given null if they are same as the port of current node.
 
 \begin{verbatim}
 	# service configs
@@ -111,9 +112,96 @@ A sample set is given below for the configuration values of parameters required 
 	file_path: true
 \end{verbatim}
 
-\subsection{Implementation}
 \section{Evaluation}
+
+Experiments were carried out to measure and evaluate latency variation under different circumstances. A separate client was implemented for this testing purpose and can be found under tester directory. \\
+
+In these experiments, a number of requests was sent and total latency of the whole batch was measured in order to calculate the average latency per request in different scenarios. Each attempt was made 3 times and the resultant average total latency value was considered for the calculations. This entire process was done several times by changing load (number of requests) and number of nodes in the cluster. \\
+
+A set of 15 dummy requests was used in these attempts where each request consists of a key belonging to a separate bucket. This set was iterated as many times as required until the number of requests being tested was matched.\\
+
+Below shows the tables containing hardware specifications of nodes and sets of nodes used in each experiment.
+
+\begin{table}[!ht]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{|c | c | c | c | c | c|} 
+	\hline
+	Node ID & Hostname & Model & CPUs & Cores & Processors\\
+	\hline
+	0 & compute-6-18 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	1 & compute-8-6 & Lenovo m93p & 1 & 4 & 8 \\ 
+	\hline
+	2 & compute-3-28 & Dell T3600 & 1 & 4 & 4 \\ 
+	\hline
+	3 & compute-6-21 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	4 & compute-3-23 & Dell T3600 & 1 & 4 & 4 \\ 
+	\hline
+	5 & compute-8-7 & Lenovo m93p & 1 & 4 & 8 \\ 
+	\hline
+	6 & compute-6-34 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	7 & compute-6-16 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	8 & compute-6-17 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	9 & compute-3-21 & Dell T3600 & 1 & 4 & 4 \\ 
+	\hline
+	10 & compute-8-5 & Lenovo m93p & 1 & 4 & 8 \\ 
+	\hline
+	11 & compute-6-22 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	12 & compute-6-15 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	13 & compute-8-8 & Lenovo m93p & 1 & 4 & 8 \\ 
+	\hline
+	14 & compute-6-19 & Lenovo P310 & 1 & 4 & 4 \\ 
+	\hline
+	15 & compute-3-0 & Dell T3600 & 1 & 4 & 4 \\ 
+	\hline
+\end{tabular}%
+}
+\caption{Hardware specification of nodes}
+\end{table}
+
+\begin{table}[!ht]
+	\centering
+	\resizebox{\columnwidth}{!}{%
+		\begin{tabular}{|c | l|} 
+			\hline
+			Number of nodes &\multicolumn{1}{|c|}{Node IDs} \\
+			\hline
+			1 & 0 \\ 
+			\hline
+			2 & 0, 7 \\
+			\hline
+			4 & 2, 5, 8, 11 \\
+			\hline
+			8 & 0, 1, 4, 6, 8, 9, 10, 13 \\
+			\hline
+			16 & 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 \\
+			\hline
+		\end{tabular}%
+	}
+	\caption{Nodes used in each experiment}
+\end{table}
+
 \section{Results}
+
+\begin{table}[!ht]
+	\centering
+	\resizebox{\columnwidth}{!}{%
+		\begin{tabular}{|c | c | c|} 
+			\hline
+			Number of nodes & Size of load (No. of requests) & Average time (s) \\
+			\hline
+		\end{tabular}%
+	}
+	\caption{Results of experiments}
+\end{table}
+
 \section{Discussion}
 \section{Conclusion}
 
