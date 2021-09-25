@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	if len(os.Args) != 4 {
 		panic(`incorrect arguments (eg: ./tester <GET/PUT> <host:port> <num_of_requests>)`)
 	}
