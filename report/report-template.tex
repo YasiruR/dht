@@ -119,9 +119,9 @@ A sample set is given below for the configuration values of parameters required 
 
 Experiments were carried out to measure and evaluate latency variation under different circumstances. A separate client was implemented for this testing purpose and can be found under tester directory. \\
 
-In these experiments, a number of requests was sent and total latency of the whole batch was measured in order to calculate the average latency per request in different scenarios. Each attempt was made 3 times and the resultant average total latency value was considered for the calculations. This entire process was done several times by changing load (number of requests) and number of nodes in the cluster. \\
+In these experiments, a number of requests was sent and total latency of the whole batch was measured in order to calculate the average latency per request in different scenarios. This entire process was done several times by changing load (number of requests) and number of nodes in the cluster. \\
 
-A set of 15 dummy requests was used in these attempts where each request consists of a key belonging to a separate bucket. This set was iterated as many times as required until the number of requests being tested was matched.\\
+A set of 15 dummy requests was used in these attempts where each request consists of a key belonging to a separate bucket, thus minimizing the erroneous influence of a particular node on the test attempt. This set was iterated as many times as required until the number of requests being tested was matched.\\
 
 Below shows the tables containing hardware specifications of nodes and sets of nodes used in each experiment.
 
@@ -193,7 +193,7 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 
 \section{Results}
 
-Following are the average execution times obtained per each query type (GET and PUT) while varying number of queries in the batch and number of nodes in the cluster. Note that throughput experiments in clusters with higher number of nodes were limited due to file descriptor limits.
+Following are the average execution times obtained per each query type (GET and PUT) while varying number of queries in the batch and number of nodes in the cluster. Note that throughput experiments in clusters with higher number of nodes were limited due to file descriptor limits. Each attempt was done 3 times and the resultant average total latency value was calculated for the average time.
 
 \begin{table}[!ht]
 	\centering
@@ -202,35 +202,35 @@ Following are the average execution times obtained per each query type (GET and 
 			\hline
 			Number of nodes & Size of load (No. of requests) & GET - Average time (ms) & PUT - Average time (ms) \\
 			\hline
-			& 16 & 0.2708 & 0.3541 \\
+			& 16 & 0.2708 & 0.3542 \\
 			\cline{2-4}
-			1 & 100 & 0.0956 & 0.0995 \\
+			1 & 100 & 0.1066 & 0.1133 \\
 			\cline{2-4}
-			& 1000 & 0.058 & 0.062 \\
+			& 1000 & 0.0580 & 0.0553 \\
 			\hline
-			& 16 & 0.345 & 0.3125 \\
+			& 16 & 0.3750 & 0.3958 \\
 			\cline{2-4}
-			2 & 100 & 0.12 & 0.11 \\
+			2 & 100 & 0.1267 & 0.1233 \\
 			\cline{2-4}
-			& 1000 & 0.065 & 0.064 \\
+			& 1000 & 0.0630 & 0.0607 \\
 			\hline
-			& 16 & 0.5625 & 0.625 \\
+			& 16 & 0.5833 & 0.6042 \\
 			\cline{2-4}
-			4 & 100 & 0.19 & 0.21 \\
+			4 & 100 & 0.1900 & 0.2033 \\
 			\cline{2-4}
-			& 500 & 0.102 & 0.118 \\
+			& 500 & 0.1007 & 0.1240 \\
 			\hline
-			& 16 & 0.8958 & 0.9375 \\
+			& 16 & 0.9167 & 0.9375 \\
 			\cline{2-4}
-			8 & 100 & 0.25 & 0.2667 \\
+			8 & 100 & 0.2467 & 0.2767 \\
 			\cline{2-4}
-			& 500 & 0.158 & 0.144 \\
+			& 500 & 0.1653 & 0.1407 \\
 			\hline
-			& 16 & 1.5208 & 1.5625 \\
+			& 16 & 1.5417 & 1.4583 \\
 			\cline{2-4}
-			16 & 100 & 0.38 & 0.38 \\
+			16 & 100 & 0.3833 & 0.3733 \\
 			\cline{2-4}
-			& 500 & 0.158 & 0.146\\
+			& 500 & 0.1693 & 0.1460\\
 			\hline
 		\end{tabular}%
 	}
@@ -238,6 +238,23 @@ Following are the average execution times obtained per each query type (GET and 
 \end{table}
 
 \section{Discussion}
+
+Following histograms with error bars for standard deviation were derived by using the above results where y-axis implies the calculated average time and x-axis denotes the experiments in the form of (number of nodes, number of requests).
+
+\setlength{\intextsep}{10pt plus 2pt minus 0pt}
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=7.5cm, height=5cm]{get.pdf}
+	\caption{Histogram of GET requests for different parameters}
+\end{figure}
+
+\setlength{\intextsep}{10pt plus 2pt minus 0pt}
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=7.5cm, height=5cm]{put.pdf}
+	\caption{Histogram of PUT requests for different parameters}
+\end{figure}
+
 \section{Conclusion}
 
 \printbibliography
