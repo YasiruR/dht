@@ -7,8 +7,6 @@ import (
 	traceableContext "github.com/tryfix/traceable-context"
 )
 
-// todo add a readme
-
 func main() {
 	ctx := traceableContext.WithUUID(uuid.New())
 
