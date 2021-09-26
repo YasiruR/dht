@@ -40,10 +40,10 @@ A logger library is integrated for debugging purposes with following
 hierarchical log levels. Required level can be enabled via `log_level` in configs.yaml
 by setting the relevant value.
 
-1. ERROR
-2. INFO
-3. DEBUG
-4. TRACE
+1. `ERROR`
+2. `INFO`
+3. `DEBUG`
+4. `TRACE`
 
 ## Todo
 

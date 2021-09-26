@@ -59,7 +59,7 @@
 \maketitle
 
 \begin{abstract}
-    In an ever-growing tech-world, the necessity of storing and accessing data is vital. With the expansion of industry and users, data-stores are being required to address additional features apart from its main objective, such as scalability, replication, accessibility etc. To this end, distributed data-stores have been more useful and applicable. In this study, I have implemented a distributed hash table using chord~\cite{1} and conducted few experiments to observe how its performance differs with cluster's scale.
+    \textbf{In an ever-growing tech-world, the necessity of storing and accessing data is vital. With the expansion of industry and users, data-stores are being required to address additional requirements apart from its main objective, such as scalability, replication, accessibility etc. To this end, distributed data-stores have been more useful and applicable. In this study, I have implemented a distributed hash table using chord~\cite{1} and conducted few experiments to observe how its performance differs with cluster's scale and number of requests in the batch.}
 \end{abstract}
 
 \section{Introduction}
@@ -75,7 +75,7 @@ The primary objective of this study is to build a system of distributed nodes ac
 \section{Project Description}
 \subsection{Design}
 
-Each individual node in the network is given an id based on the SHA256 hash value of its own hostname. Thus, specific instances were chosen to resemble and organize the ring structure such that there are no multiple instances for the same id. Fig.1 shows one of such structures with 16 nodes used in the experiments of this study along with generated node ids and hostnames.
+Each individual node in the network is given an id based on the SHA256 hash value of its own hostname. Thus, specific instances were chosen to resemble and organize the ring structure such that there are no multiple instances for the same id. Figure.1 shows one of such structures with 16 nodes used in the experiments of this study along with generated node ids and hostnames.
 
 \setlength{\intextsep}{10pt plus 2pt minus 2pt}
 \begin{figure}[!ht]
@@ -117,15 +117,16 @@ A sample set is given below for the configuration values of parameters required 
 
 \section{Evaluation}
 
-Experiments were carried out to measure and evaluate latency variation under different circumstances. A separate client was implemented for this testing purpose and can be found under tester directory. \\
+Several experiments were carried out to measure and evaluate latency variation under different circumstances. A separate client was implemented for this testing purpose and can be found under tester directory of the project. 
 
 In these experiments, a number of requests was sent and total latency of the whole batch was measured in order to calculate the average latency per request in different scenarios. This entire process was done several times by changing load (number of requests) and number of nodes in the cluster. \\
 
-A set of 15 dummy requests was used in these attempts where each request consists of a key belonging to a separate bucket, thus minimizing the erroneous influence of a particular node on the test attempt. This set was iterated as many times as required until the number of requests being tested was matched.\\
+A set of 15 dummy requests was used in these attempts where each request consists of a key belonging to a separate bucket, thus minimizing the erroneous influence of a particular node on a test attempt. This set was iterated as many times as required until the number of requests being tested was matched.\\
 
-Below shows the tables containing hardware specifications of nodes and sets of nodes used in each experiment.
+Table 1 and 2 provide details about hardware specifications of nodes and sets of nodes used in each experiment.
 
 \begin{table}[!ht]
+\renewcommand{\arraystretch}{1.4}
 \centering
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{|c | c | c | c | c | c|} 
@@ -170,6 +171,7 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 \end{table}
 
 \begin{table}[!ht]
+	\renewcommand{\arraystretch}{1.1}
 	\centering
 	\resizebox{\columnwidth}{!}{%
 		\begin{tabular}{|c | l|} 
@@ -193,9 +195,11 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 
 \section{Results}
 
-Following are the average execution times obtained per each query type (GET and PUT) while varying number of queries in the batch and number of nodes in the cluster. Note that throughput experiments in clusters with higher number of nodes were limited due to file descriptor limits. Each attempt was done 3 times and the resultant average total latency value was calculated for the average time.
+Following are the average execution times obtained per each query type (GET and PUT) while varying number of queries in the batch and number of nodes in the cluster (Table 3). Note that throughput experiments in clusters with higher number of nodes were limited due to file descriptor limits. Each attempt was done 3 times and the resultant average total latency value was calculated for the average time.
 
 \begin{table}[!ht]
+	%\LARGE
+	\renewcommand{\arraystretch}{1.5}
 	\centering
 	\resizebox{\columnwidth}{!}{%
 		\begin{tabular}{|c | c | c | c|} 
@@ -239,23 +243,55 @@ Following are the average execution times obtained per each query type (GET and 
 
 \section{Discussion}
 
-Following histograms with error bars for standard deviation were derived by using the above results where y-axis implies the calculated average time and x-axis denotes the experiments in the form of (number of nodes, number of requests).
+Following histograms (Figure 2 and 3) with error bars for standard deviation~\cite{2} were derived by using the above results where y-axis implies the calculated average time and x-axis denotes the experiments in the form of (number of nodes, number of requests).\\
 
 \setlength{\intextsep}{10pt plus 2pt minus 0pt}
 \begin{figure}[!ht]
 	\centering
 	\includegraphics[width=7.5cm, height=5cm]{get.pdf}
-	\caption{Histogram of GET requests for different parameters}
+	\caption{Histogram of average times for GET requests with different parameters}
 \end{figure}
 
-\setlength{\intextsep}{10pt plus 2pt minus 0pt}
+\setlength{\intextsep}{5pt plus 2pt minus 0pt}
 \begin{figure}[!ht]
 	\centering
 	\includegraphics[width=7.5cm, height=5cm]{put.pdf}
-	\caption{Histogram of PUT requests for different parameters}
+	\caption{Histogram of average times for PUT requests with different parameters}
 \end{figure}
 
+Line graphs in Figure 4 and 5 were constructed for more precise interpretation and comparison of experiment results.\\
+
+\setlength{\intextsep}{7pt plus 2pt minus 0pt}
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=7.5cm, height=5cm]{put_line.pdf}
+	\caption{Line graph of average times for PUT requests with different parameters}
+\end{figure}
+
+\setlength{\intextsep}{5pt plus 2pt minus 0pt}
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=7.5cm, height=5cm]{get_line.pdf}
+	\caption{Line graph of average times for GET requests with different parameters}
+\end{figure}
+
+By observing these charts, it is obvious that response times increase with number of nodes in the network for a particular batch of requests and can this be explained by the rise in redundant HTTP calls among nodes when a network expands. However, this increasing factor seems to be diminishing when the size of the request batch increases. \\
+
+Furthermore, for a given network with a fixed number of nodes, latency decreases as opposed to number of requests in the batch. A possible reason for this observation could be that the capability of a node to process query requests asynchronously while the rest are still in progress or being circulated in the network and thus maximizing the throughput relatively.\\
+
+This entire behaviour is consistent across both request types (GET and PUT) despite the minor variations in latency. Lower average times are highly possible if the communication among nodes can be replaced with a better approach.
+
 \section{Conclusion}
+
+Finally, it can be concluded that the implemented key-value store is more appropriate when the number of queries is higher in terms of the performance for a given network of nodes. In contrast, number of nodes in the network has a negative impact on the query latency. Thus, the distributed key-value store should be designed with a preferable number of nodes such that it addresses the trade-off between performance and other quantitative/non-quantitative measures of a distributed system (scalability, accessibility, load of queries, fault tolerance etc.) depending on the requirements of a given scenario.
+
+\begin{thebibliography}{9}	
+	\bibitem{chord}
+	Ion Stoica, Robert Morris, David Karger, M. Frans Kaashoek, Hari Balakrishnan (2001) \emph{Chord: A Scalable Peer-to-Peer Lookup Service for Internet Applications }, MIT Laboratory for Computer Science.
+	
+	\bibitem{error}
+	Lee, Dong and In, Junyong and Lee, Sangseok (2015) \emph{Standard deviation and standard error of the mean}, Addison-Wesley Professional.
+\end{thebibliography}
 
 \printbibliography
 
