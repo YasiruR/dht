@@ -193,6 +193,8 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 
 \section{Results}
 
+Following are the average execution times obtained per each query type (GET and PUT) while varying number of queries in the batch and number of nodes in the cluster. Note that throughput experiments in clusters with higher number of nodes were limited due to file descriptor limits.
+
 \begin{table}[!ht]
 	\centering
 	\resizebox{\columnwidth}{!}{%
@@ -200,9 +202,9 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 			\hline
 			Number of nodes & Size of load (No. of requests) & GET - Average time (ms) & PUT - Average time (ms) \\
 			\hline
-			& 16 &  &  \\
+			& 16 & 0.2708 & 0.3541 \\
 			\cline{2-4}
-			1 & 100 & 0.09557974 & 0.0995189 \\
+			1 & 100 & 0.0956 & 0.0995 \\
 			\cline{2-4}
 			& 1000 & 0.058 & 0.062 \\
 			\hline
@@ -212,11 +214,11 @@ Below shows the tables containing hardware specifications of nodes and sets of n
 			\cline{2-4}
 			& 1000 & 0.065 & 0.064 \\
 			\hline
-			& 16 & & \\
+			& 16 & 0.5625 & 0.625 \\
 			\cline{2-4}
-			4 & 100 & & \\
+			4 & 100 & 0.19 & 0.21 \\
 			\cline{2-4}
-			& 1000 & & \\
+			& 500 & 0.102 & 0.118 \\
 			\hline
 			& 16 & 0.8958 & 0.9375 \\
 			\cline{2-4}

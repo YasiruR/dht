@@ -34,7 +34,16 @@ tester.
 4. `./tester <HTTP_method_type> <host:port> <number_of_requests>`     
   Note: HTTP method type should either be GET or PUT
 
-## Log Levels
+## Logging
+
+A logger library is integrated for debugging purposes with following 
+hierarchical log levels. Required level can be enabled via `log_level` in configs.yaml
+by setting the relevant value.
+
+1. ERROR
+2. INFO
+3. DEBUG
+4. TRACE
 
 ## Todo
 
