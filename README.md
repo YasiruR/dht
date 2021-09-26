@@ -20,7 +20,7 @@ successor: "compute-2-1"
 successor_port: ""
 ```
 NOTE: Ports can be given null if they are same as the corresponding node   
-4. Run the executable file
+  4. Run the executable file
 
 ## Tester
 
@@ -33,6 +33,8 @@ tester.
 3. Move this executable file to a node in the cluster
 4. `./tester <HTTP_method_type> <host:port> <number_of_requests>`     
   Note: HTTP method type should either be GET or PUT
+
+## Log Levels
 
 ## Todo
 
