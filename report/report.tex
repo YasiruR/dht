@@ -115,6 +115,8 @@ A sample set is given below for the configuration values of parameters required 
 	file_path: true
 \end{verbatim}
 
+\texttt{max\_num\_of\_nodes} here should be equal or larger than the number of nodes being tested. \texttt{request\_timeout\_sec} refers to the waiting time of a single HTTP request by a node in seconds. Moreover each node has a TTL in minutes for the self-termination configured by \texttt{ttl\_min}.
+
 \section{Evaluation}
 
 Several experiments were carried out to measure and evaluate latency variation under different circumstances. A separate client was implemented for this testing purpose and can be found under tester directory of the project. 
@@ -283,7 +285,9 @@ This entire behaviour is consistent across both request types (GET and PUT) desp
 
 \section{Conclusion}
 
-Finally, it can be concluded that the implemented key-value store is more appropriate when the number of queries is higher in terms of the performance for a given network of nodes. In contrast, number of nodes in the network has a negative impact on the query latency. Thus, the distributed key-value store should be designed with a preferable number of nodes such that it addresses the trade-off between performance and other quantitative/non-quantitative measures of a distributed system (scalability, accessibility, load of queries, fault tolerance etc.) depending on the requirements of a given scenario.
+Finally, it can be concluded that the implemented key-value store is more appropriate when the number of queries is higher in terms of the performance for a given network of nodes. In contrast, number of nodes in the network has a negative impact on the query latency. \\ 
+
+Thus, the distributed key-value store should be designed with a preferable number of nodes such that it addresses the trade-off between performance and other quantitative/non-quantitative measures of a distributed system (scalability, accessibility, load of queries, fault tolerance etc.) depending on the requirements of a given scenario.
 
 \begin{thebibliography}{9}	
 	\bibitem{chord}
