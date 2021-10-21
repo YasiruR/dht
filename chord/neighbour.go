@@ -5,7 +5,6 @@ import (
 	"dht/logger"
 	"errors"
 	"fmt"
-	"github.com/go-ping/ping"
 	"github.com/tryfix/log"
 	"io/ioutil"
 	"net/http"
@@ -14,53 +13,34 @@ import (
 )
 
 type Client struct {
-	url string
+	predHostname string
+	sucHostname  string
 	*http.Client
 }
 
-var client *Client
+var neighbors *Client
 
 func InitClient(ctx context.Context) {
-	client = &Client{
-		url:    `http://` + Config.Successor + `:` + Config.SuccessorPort + `/storage/`,
-		Client: &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
+	neighbors = &Client{
+		Client:   &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
 	}
 	logger.Log.InfoContext(ctx, `client initiated for neighbour requests`)
 }
 
-func TestPeerConn(ctx context.Context) {
-	if !Config.NeighbourCheck {
-		log.DebugContext(ctx, `checking for neighbours is disabled`)
-		return
-	}
+func (c *Client) updateSuccessor(hostname string) {
+	c.sucHostname = hostname
+	node.updateSucId(hostname)
+}
 
-	p1, err := ping.NewPinger(Config.Predecessor)
-	if err != nil {
-		log.Fatal(`creating new pinger failed`, Config.Predecessor)
-	}
-	p1.Count = 3
-
-	err = p1.Run()
-	if err != nil {
-		log.Fatal(`pinging to predecessor failed`, Config.Predecessor)
-	}
-
-	p2, err := ping.NewPinger(Config.Successor)
-	if err != nil {
-		log.Fatal(`creating new pinger failed`, Config.Successor)
-	}
-	p2.Count = 3
-
-	err = p2.Run()
-	if err != nil {
-		log.Fatal(`pinging to successor failed`, Config.Successor)
-	}
+func (c *Client) updatePredecessor(hostname string) {
+	c.predHostname = hostname
+	node.updatePredId(hostname)
 }
 
 func (c *Client) proceedGetKey(key string, req *http.Request) (string, int, error) {
-	u, err := url.Parse(c.url + key)
+	u, err := url.Parse(`http://` + c.sucHostname + `/storage/` + key)
 	if err != nil {
-		log.Error(err, `failed parsing successor url`)
+		log.Error(err, `failed parsing successor storeUrl`)
 		return "", 0, err
 	}
 
@@ -82,14 +62,14 @@ func (c *Client) proceedGetKey(key string, req *http.Request) (string, int, erro
 		return "", res.StatusCode, err
 	}
 
-	logger.Log.Debug(fmt.Sprintf(`proceeding %s for get key request from %s`, string(bytes), Config.Successor))
+	logger.Log.Debug(fmt.Sprintf(`proceeding %s for get key request from %s`, string(bytes), c.sucHostname))
 	return string(bytes), res.StatusCode, nil
 }
 
 func (c *Client) proceedStoreKey(key string, req *http.Request) (int, error) {
-	u, err := url.Parse(c.url + key)
+	u, err := url.Parse(`http://` + c.sucHostname + `/storage/` + key)
 	if err != nil {
-		log.Error(err, `failed parsing successor url`)
+		log.Error(err, `failed parsing successor storeUrl`)
 		return 0, err
 	}
 
@@ -106,8 +86,48 @@ func (c *Client) proceedStoreKey(key string, req *http.Request) (int, error) {
 		return 0, extractError(res)
 	}
 
-	logger.Log.Debug(fmt.Sprintf(`store key:%s was proceeded successfully to %s`, key, Config.Successor))
+	logger.Log.Debug(fmt.Sprintf(`store key:%s was proceeded successfully to %s`, key, c.sucHostname))
 	return res.StatusCode, nil
+}
+
+func (c *Client) proceedJoin(key string, req *http.Request) (int, error) {
+	u, err := url.Parse(`http://` + c.sucHostname + `/internal/join/` + key)
+	if err != nil {
+		log.Error(err, `failed parsing successor join url`)
+		return 0, err
+	}
+
+	req.RequestURI = ""
+	req.URL = u
+	res, err := c.Client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return 0, extractError(res)
+	}
+
+	logger.Log.Debug(fmt.Sprintf(`internal join for key:%s was proceeded successfully to %s`, key, c.sucHostname))
+	return res.StatusCode, nil
+}
+
+func (c *Client) notifyPredecessor(hostname string) error {
+	res, err := c.Client.Post(`http://` + c.predHostname + `/internal/update-successor` + hostname, `application/json`, nil)
+	if err != nil {
+		log.Error(err, `failed sending inform predecessor request`)
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return extractError(res)
+	}
+
+	logger.Log.Debug(fmt.Sprintf(`internal update of predecssor was proceeded successfully to %s`, c.predHostname))
+	return nil
 }
 
 func extractError(res *http.Response) error {

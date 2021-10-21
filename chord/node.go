@@ -33,33 +33,24 @@ func InitNode(ctx context.Context) {
 	}
 
 	hostname := osName[:len(osName)-6]
+	node = &Node{hostname: hostname, id: bucketId(hostname), single: true}
+	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id = %d`, hostname, node.id))
+}
 
-	id, err := bucketId(hostname)
-	if err != nil {
-		log.FatalContext(ctx, err, `failed to get the id of the node'`)
+func (n *Node) updatePredId(hostname string) {
+	if hostname != "" && hostname != n.hostname {
+		n.single = false
 	}
+	n.predId = bucketId(hostname)
+	logger.Log.Debug(fmt.Sprintf(`predecessor updated to %s`, hostname))
+}
 
-	pId, err := bucketId(Config.Predecessor)
-	if err != nil {
-		log.FatalContext(ctx, err, `failed to get the id of the predecessor node'`)
+func (n *Node) updateSucId(hostname string) {
+	if hostname != "" && hostname != n.hostname {
+		n.single = false
 	}
-
-	sId, err := bucketId(Config.Successor)
-	if err != nil {
-		log.FatalContext(ctx, err, `failed to get the id of the successor node'`)
-	}
-
-	if (Config.Successor == "" && Config.Predecessor != "") || (Config.Successor != "" && Config.Predecessor == "") {
-		log.FatalContext(ctx, `one of predecessor/successor is null`)
-	}
-
-	var singleNode bool
-	if Config.Successor == "" && Config.Predecessor == "" {
-		singleNode = true
-	}
-
-	node = &Node{hostname: hostname, id: id, predId: pId, sucId: sId, single: singleNode}
-	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id=%d, predecessor=%d and successor=%d `, hostname, id, pId, sId))
+	n.sucId = bucketId(hostname)
+	logger.Log.Debug(fmt.Sprintf(`successir updated to %s`, hostname))
 }
 
 func (n *Node) checkKey(key string) (bool, error) {
@@ -67,12 +58,7 @@ func (n *Node) checkKey(key string) (bool, error) {
 		return true, nil
 	}
 
-	bucket, err := bucketId(key)
-	if err != nil {
-		logger.Log.Error(err, `validating key failed`)
-		return false, err
-	}
-
+	bucket := bucketId(key)
 	logger.Log.Debug(fmt.Sprintf(`key: %s bucket_id: %d`, key, bucket))
 
 	// n.id < n.predId
@@ -92,11 +78,11 @@ func (n *Node) checkKey(key string) (bool, error) {
 	return false, nil
 }
 
-func bucketId(key string) (*big.Int, error) {
+func bucketId(key string) *big.Int {
 	hexVal := sha256.Sum256([]byte(key))
 	n := new(big.Int)
 	n.SetString(hex.EncodeToString(hexVal[:]), 16)
-	return n, nil
+	return n
 }
 
 func join() {

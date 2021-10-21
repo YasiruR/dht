@@ -16,9 +16,6 @@ func main() {
 
 	chord.InitConfigs(ctx)
 	chord.InitClient(ctx)
-	if chord.Config.NeighbourCheck {
-		chord.TestPeerConn(ctx)
-	}
 	chord.InitStore(ctx)
 	chord.InitNode(ctx)
 

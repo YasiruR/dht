@@ -16,9 +16,10 @@ import (
 
 // error definitions
 const (
-	errParamKey = `invalid path parameter (key)`
-	errEncode   = `encoding error response failed`
-	errBucket   = `checking bucket failed`
+	errParamKey  = `invalid path parameter (key)`
+	errParamHost = `invalid path parameter (host)`
+	errEncode    = `encoding error response failed`
+	errBucket    = `checking bucket failed`
 
 	errStore      = `requested key does not exist in store`
 	errReadBody   = `failed to read request body`
@@ -30,13 +31,16 @@ func InitServer(ctx context.Context) {
 	r.HandleFunc(`/storage/{key}`, retrieveVal).Methods(http.MethodGet)
 	r.HandleFunc(`/storage/{key}`, storeVal).Methods(http.MethodPut)
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
+
+	r.HandleFunc(`/internal/join/{host}`, internalJoin).Methods(http.MethodPost)
+	r.HandleFunc(`/internal/update-successor/{host}`, updateSuccessor).Methods(http.MethodPost)
 	logger.Log.InfoContext(ctx, `initializing http server`)
 
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(Config.Port), r))
 }
 
 func getNeighbours(w http.ResponseWriter, r *http.Request) {
-	res := []string{Config.Predecessor + `:` + Config.PredecessorPort, Config.Successor + `:` + Config.SuccessorPort}
+	res := []string{neighbors.predHostname, neighbors.sucHostname}
 
 	// writing the response
 	w.WriteHeader(http.StatusOK)
@@ -56,7 +60,7 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		logger.Log.ErrorContext(ctx, errParamKey, r.URL.String())
-		_, err := w.Write([]byte(`invalid url with param key`))
+		_, err := w.Write([]byte(`invalid storeUrl with param key`))
 		if err != nil {
 			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		}
@@ -90,7 +94,7 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 		}
 		statusCode = http.StatusOK
 	} else {
-		val, statusCode, err = client.proceedGetKey(key, r)
+		val, statusCode, err = neighbors.proceedGetKey(key, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logger.Log.ErrorContext(ctx, err, key)
@@ -120,7 +124,7 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 		logger.Log.Error(errParamKey, r.URL.String())
-		_, err := w.Write([]byte(`invalid url with param key`))
+		_, err := w.Write([]byte(`invalid storeUrl with param key`))
 		if err != nil {
 			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		}
@@ -139,7 +143,7 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !includes {
-		status, err := client.proceedStoreKey(key, r)
+		status, err := neighbors.proceedStoreKey(key, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logger.Log.ErrorContext(ctx, err, errBucket, key)
@@ -169,5 +173,104 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 	dataStore.set(key, string(data))
 
 	// writing the success header
+	w.WriteHeader(http.StatusOK)
+}
+
+/* dynamic join and leave functionality */
+
+type internalJoinRes struct {
+	Predecessor string `json:"predecessor"`
+	Successor   string `json:"successor"`
+}
+
+func internalJoin(w http.ResponseWriter, r *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for internal join`)
+
+	// fetching the hostname
+	hostname, ok := mux.Vars(r)[`host`]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		logger.Log.Error(errParamKey, r.URL.String())
+		_, err := w.Write([]byte(`invalid internal join url with param hostname`))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	includes, err := node.checkKey(hostname)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.ErrorContext(ctx, err, errBucket, hostname)
+		_, err = w.Write([]byte(err.Error()))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	if !includes {
+		status, err := neighbors.proceedJoin(hostname, r)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logger.Log.ErrorContext(ctx, err, errBucket, hostname)
+			_, err = w.Write([]byte(errBucket))
+			if err != nil {
+				logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+			}
+			return
+		}
+
+		w.WriteHeader(status)
+		return
+	}
+
+	// informs ex-predecessor to update its successor
+	err = neighbors.notifyPredecessor(hostname)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.ErrorContext(ctx, err, errBucket, hostname)
+		_, err = w.Write([]byte(errBucket))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	// adds new node as predecessor
+	exPred := neighbors.predHostname
+	neighbors.updatePredecessor(hostname)
+
+	// returns successor and predecessor of new node
+	newNeighbors := internalJoinRes{exPred, node.hostname}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(newNeighbors)
+	if err != nil {
+		logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	return
+}
+
+func updateSuccessor(w http.ResponseWriter, r *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for internal update successor`)
+
+	// fetching hostname
+	hostname, ok := mux.Vars(r)[`host`]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		logger.Log.Error(errParamHost, r.URL.String())
+		_, err := w.Write([]byte(`invalid internal update successor url with param hostname`))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	neighbors.updateSuccessor(hostname)
 	w.WriteHeader(http.StatusOK)
 }
