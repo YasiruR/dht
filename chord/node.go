@@ -13,9 +13,9 @@ import (
 
 type Node struct {
 	hostname string
-	id       int
-	predId   int
-	sucId    int
+	id       *big.Int
+	predId   *big.Int
+	sucId    *big.Int
 	single   bool
 }
 
@@ -75,26 +75,28 @@ func (n *Node) checkKey(key string) (bool, error) {
 
 	logger.Log.Debug(fmt.Sprintf(`key: %s bucket_id: %d`, key, bucket))
 
-	// handling the first node
-	if n.id < n.predId {
-		if bucket >= n.predId || bucket < n.id {
+	// n.id < n.predId
+	if n.id.Cmp(n.predId) == -1 {
+		// bucket >= n.predId or bucket < n.id
+		if bucket.Cmp(n.predId) == 1 || bucket.Cmp(n.predId) == 0 || bucket.Cmp(n.id) == -1 {
 			return true, nil
 		}
 		return false, nil
 	}
 
-	if bucket < n.id && bucket >= n.predId {
+	// bucket < n.id && bucket >= n.predId
+	if bucket.Cmp(n.id) == -1 && (bucket.Cmp(n.predId) == 1 || bucket.Cmp(n.predId) == 0) {
 		return true, nil
 	}
 
 	return false, nil
 }
 
-func bucketId(key string) (int, error) {
+func bucketId(key string) (*big.Int, error) {
 	hexVal := sha256.Sum256([]byte(key))
 	n := new(big.Int)
 	n.SetString(hex.EncodeToString(hexVal[:]), 16)
-	return int(n.Uint64() % uint64(Config.MaxNumOfNodes)), nil
+	return n, nil
 }
 
 func join() {
