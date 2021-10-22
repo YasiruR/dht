@@ -211,9 +211,6 @@ func join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("PREDD : ", pred, len(pred))
-	fmt.Println("SUCC : ", suc, len(suc))
-
 	neighbors.updatePredecessor(pred)
 	neighbors.updateSuccessor(suc)
 
@@ -272,7 +269,7 @@ func internalJoin(w http.ResponseWriter, r *http.Request) {
 	var newNeighbors string
 	// join to the first node
 	if node.single {
-		newNeighbors = strings.Join([]string{hostname, hostname}, ",")
+		newNeighbors = strings.Join([]string{node.hostname, node.hostname}, ",")
 		neighbors.updateSuccessor(hostname)
 		neighbors.updatePredecessor(hostname)
 	} else {
