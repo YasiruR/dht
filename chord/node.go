@@ -9,6 +9,7 @@ import (
 	"github.com/tryfix/log"
 	"math/big"
 	"os"
+	"strconv"
 )
 
 type Node struct {
@@ -32,7 +33,7 @@ func InitNode(ctx context.Context) {
 		log.FatalContext(ctx, `os name has a different syntax`, osName)
 	}
 
-	hostname := osName[:len(osName)-6]
+	hostname := osName[:len(osName)-6] + `:` + strconv.Itoa(Config.Port)
 	node = &Node{hostname: hostname, id: bucketId(hostname), single: true}
 	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id = %d`, hostname, node.id))
 }
@@ -50,7 +51,7 @@ func (n *Node) updateSucId(hostname string) {
 		n.single = false
 	}
 	n.sucId = bucketId(hostname)
-	logger.Log.Debug(fmt.Sprintf(`successir updated to %s`, hostname))
+	logger.Log.Debug(fmt.Sprintf(`successor updated to %s`, hostname))
 }
 
 func (n *Node) checkKey(key string) (bool, error) {

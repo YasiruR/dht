@@ -3,13 +3,13 @@ package chord
 import (
 	"context"
 	"dht/logger"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tryfix/log"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -109,43 +109,48 @@ func (c *Client) initJoin(networkHost string) (string, string, error) {
 		return ``, ``, err
 	}
 
-	var newNeighbors internalJoinRes
-	err = json.Unmarshal(data, &newNeighbors)
-	if err != nil {
-		log.Error(err, `failed unmarshalling json response of internal join`)
-		return ``, ``, err
+	// additional processing is required as response body is in raw string format - 'predecessor,successor'
+	newNeighbors := strings.Split(string(data)[1:len(data)-2], ",")
+	if len(newNeighbors) != 2 {
+		return ``, ``, fmt.Errorf(`returned an invalid response for neighbors upon joining [res: %s]`, newNeighbors)
 	}
 
 	logger.Log.Debug(fmt.Sprintf(`internal join was initiated successfully to %s`, networkHost))
-	return newNeighbors.Predecessor, newNeighbors.Successor, nil
+	return newNeighbors[0], newNeighbors[1], nil
 }
 
-func (c *Client) proceedJoin(hostname string, req *http.Request) (int, error) {
+func (c *Client) proceedJoin(hostname string, req *http.Request) ([]byte, error) {
 	u, err := url.Parse(`http://` + c.sucHostname + `/internal/join/` + hostname)
 	if err != nil {
 		log.Error(err, `failed parsing successor join url`)
-		return 0, err
+		return nil, err
 	}
 
 	req.RequestURI = ""
 	req.URL = u
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return 0, extractError(res)
+		return nil, extractError(res)
+	}
+
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		logger.Log.Error(err, `reading internal join proceed response failed`)
+		return nil, err
 	}
 
 	logger.Log.Debug(fmt.Sprintf(`internal join for hostname:%s was proceeded successfully to %s`, hostname, c.sucHostname))
-	return res.StatusCode, nil
+	return data, nil
 }
 
 func (c *Client) notifyPredecessor(hostname string) error {
-	res, err := c.Client.Post(`http://`+c.predHostname+`/internal/update-successor`+hostname, `application/json`, nil)
+	res, err := c.Client.Post(`http://`+c.predHostname+`/internal/update-successor/`+hostname, `application/json`, nil)
 	if err != nil {
 		log.Error(err, `failed sending inform predecessor request`)
 		return err

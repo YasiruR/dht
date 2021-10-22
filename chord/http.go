@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // error definitions
@@ -21,7 +22,7 @@ const (
 	errParamPrime = `invalid query parameter (nprime)`
 	errEncode     = `encoding error response failed`
 	errBucket     = `checking bucket failed`
-	errJoin 	  = `initiating join failed`
+	errJoin       = `initiating join failed`
 	errStore      = `requested key does not exist in store`
 	errReadBody   = `failed to read request body`
 	errUnmarshall = `unmarshalling request body failed`
@@ -210,8 +211,11 @@ func join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	neighbors.updateSuccessor(suc)
+	fmt.Println("PREDD : ", pred, len(pred))
+	fmt.Println("SUCC : ", suc, len(suc))
+
 	neighbors.updatePredecessor(pred)
+	neighbors.updateSuccessor(suc)
 
 	w.WriteHeader(http.StatusOK)
 	return
@@ -245,7 +249,7 @@ func internalJoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !includes {
-		status, err := neighbors.proceedJoin(hostname, r)
+		resData, err := neighbors.proceedJoin(hostname, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logger.Log.ErrorContext(ctx, err, errBucket, hostname)
@@ -256,28 +260,41 @@ func internalJoin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.WriteHeader(status)
-		return
-	}
-
-	// informs ex-predecessor to update its successor
-	err = neighbors.notifyPredecessor(hostname)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logger.Log.ErrorContext(ctx, err, errBucket, hostname)
-		_, err = w.Write([]byte(errBucket))
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(resData)
 		if err != nil {
 			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
 	}
 
-	// adds new node as predecessor
-	exPred := neighbors.predHostname
-	neighbors.updatePredecessor(hostname)
+	var newNeighbors string
+	// join to the first node
+	if node.single {
+		newNeighbors = strings.Join([]string{hostname, hostname}, ",")
+		neighbors.updateSuccessor(hostname)
+		neighbors.updatePredecessor(hostname)
+	} else {
+		// informs ex-predecessor to update its successor
+		err = neighbors.notifyPredecessor(hostname)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logger.Log.ErrorContext(ctx, err, errBucket, hostname)
+			_, err = w.Write([]byte(errBucket))
+			if err != nil {
+				logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+			}
+			return
+		}
+		// setting ex-predecessor as predecessor of the new node
+		exPred := neighbors.predHostname
+		// adds new node as predecessor
+		neighbors.updatePredecessor(hostname)
 
-	// returns successor and predecessor of new node
-	newNeighbors := internalJoinRes{exPred, node.hostname}
+		// returns successor and predecessor of new node
+		newNeighbors = strings.Join([]string{exPred, node.hostname}, ",")
+	}
 
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(newNeighbors)
