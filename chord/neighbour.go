@@ -38,6 +38,12 @@ func (c *Client) updatePredecessor(hostname string) {
 	node.updatePredId(hostname)
 }
 
+func (c *Client) clearNeighbors() {
+	c.sucHostname = ""
+	c.predHostname = ""
+	node.leave()
+}
+
 func (c *Client) proceedGetKey(key string, req *http.Request) (string, int, error) {
 	u, err := url.Parse(`http://` + c.sucHostname + `/storage/` + key)
 	if err != nil {
@@ -149,10 +155,17 @@ func (c *Client) proceedJoin(hostname string, req *http.Request) ([]byte, error)
 	return data, nil
 }
 
-func (c *Client) notifyPredecessor(hostname string) error {
-	res, err := c.Client.Post(`http://`+c.predHostname+`/internal/update-successor/`+hostname, `application/json`, nil)
+func (c *Client) notifyNeighbor(hostname string, predecessor bool) error {
+	var u string
+	if predecessor {
+		u = `http://`+c.predHostname+`/internal/update-successor/`+hostname
+	} else {
+		u = `http://`+c.sucHostname+`/internal/update-predecessor/`+hostname
+	}
+
+	res, err := c.Client.Post(u, `application/json`, nil)
 	if err != nil {
-		log.Error(err, `failed sending inform predecessor request`)
+		log.Error(err, fmt.Sprintf(`failed sending inform neighbor request [predecessor: %t]`, predecessor))
 		return err
 	}
 	defer res.Body.Close()
@@ -161,7 +174,7 @@ func (c *Client) notifyPredecessor(hostname string) error {
 		return extractError(res)
 	}
 
-	logger.Log.Debug(fmt.Sprintf(`internal update of predecssor was proceeded successfully to %s`, c.predHostname))
+	logger.Log.Debug(fmt.Sprintf(`internal update of neighbor was proceeded successfully [predecessor: %t]`, predecessor))
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // error definitions
@@ -23,6 +24,7 @@ const (
 	errEncode     = `encoding error response failed`
 	errBucket     = `checking bucket failed`
 	errJoin       = `initiating join failed`
+	errLeave 	  = `leaving of node failed`
 	errStore      = `requested key does not exist in store`
 	errReadBody   = `failed to read request body`
 	errUnmarshall = `unmarshalling request body failed`
@@ -36,8 +38,10 @@ func InitServer(ctx context.Context) {
 
 	// http endpoints for join and leave
 	r.HandleFunc(`/join`, join).Methods(http.MethodPost)
+	r.HandleFunc(`/leave`, leave).Methods(http.MethodPost)
 	r.HandleFunc(`/internal/join/{host}`, internalJoin).Methods(http.MethodPost)
 	r.HandleFunc(`/internal/update-successor/{host}`, updateSuccessor).Methods(http.MethodPost)
+	r.HandleFunc(`/internal/update-predecessor/{host}`, updatePredecessor).Methods(http.MethodPost)
 
 	// http endpoints for debugging the network
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
@@ -274,7 +278,7 @@ func internalJoin(w http.ResponseWriter, r *http.Request) {
 		neighbors.updatePredecessor(hostname)
 	} else {
 		// informs ex-predecessor to update its successor
-		err = neighbors.notifyPredecessor(hostname)
+		err = neighbors.notifyNeighbor(hostname, true)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logger.Log.ErrorContext(ctx, err, errBucket, hostname)
@@ -299,8 +303,48 @@ func internalJoin(w http.ResponseWriter, r *http.Request) {
 		logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
 
-	return
+func leave(w http.ResponseWriter, r *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for leave`)
+
+	wg := &sync.WaitGroup{}
+	resChan := make(chan error, 2)
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		err := neighbors.notifyNeighbor(neighbors.sucHostname, true)
+		if err != nil {
+			logger.Log.Error(err, `notifying predecessor failed`)
+		}
+		resChan <- err
+		wg.Done()
+	}(wg)
+
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		err := neighbors.notifyNeighbor(neighbors.predHostname, false)
+		if err != nil {
+			logger.Log.Error(err, `notifying successor failed`)
+		}
+		resChan <- err
+		wg.Done()
+	}(wg)
+
+	wg.Wait()
+	err1 := <- resChan
+	err2 := <- resChan
+	if err1 != nil || err2 != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		_, err := w.Write([]byte(errLeave))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	neighbors.clearNeighbors()
+	w.WriteHeader(http.StatusOK)
 }
 
 func updateSuccessor(w http.ResponseWriter, r *http.Request) {
@@ -320,5 +364,25 @@ func updateSuccessor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	neighbors.updateSuccessor(hostname)
+	w.WriteHeader(http.StatusOK)
+}
+
+func updatePredecessor(w http.ResponseWriter, r *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for internal update predecessor`)
+
+	// fetching hostname
+	hostname, ok := mux.Vars(r)[`host`]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		logger.Log.Error(errParamHost, r.URL.String())
+		_, err := w.Write([]byte(`invalid internal update predecessor url with param hostname`))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	neighbors.updatePredecessor(hostname)
 	w.WriteHeader(http.StatusOK)
 }

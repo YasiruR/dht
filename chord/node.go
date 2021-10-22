@@ -54,6 +54,10 @@ func (n *Node) updateSucId(hostname string) {
 	logger.Log.Debug(fmt.Sprintf(`successor updated to %s`, hostname))
 }
 
+func (n *Node) leave() {
+	n.single = true
+}
+
 func (n *Node) checkKey(key string) (bool, error) {
 	if n.single {
 		return true, nil
