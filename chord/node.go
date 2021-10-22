@@ -84,11 +84,3 @@ func bucketId(key string) *big.Int {
 	n.SetString(hex.EncodeToString(hexVal[:]), 16)
 	return n
 }
-
-func join() {
-	// compute id
-	// get all ips of the cluster
-	// call join endpoint of each node and get response ids
-	// add this node's predecessor and successor
-	// notifies ex-neighbours to remove them (check if this is really required as it's an overhead)
-}

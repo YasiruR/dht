@@ -3,6 +3,7 @@ package chord
 import (
 	"context"
 	"dht/logger"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tryfix/log"
@@ -22,7 +23,7 @@ var neighbors *Client
 
 func InitClient(ctx context.Context) {
 	neighbors = &Client{
-		Client:   &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
+		Client: &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
 	}
 	logger.Log.InfoContext(ctx, `client initiated for neighbour requests`)
 }
@@ -90,8 +91,37 @@ func (c *Client) proceedStoreKey(key string, req *http.Request) (int, error) {
 	return res.StatusCode, nil
 }
 
-func (c *Client) proceedJoin(key string, req *http.Request) (int, error) {
-	u, err := url.Parse(`http://` + c.sucHostname + `/internal/join/` + key)
+func (c *Client) initJoin(networkHost string) (string, string, error) {
+	res, err := c.Client.Post(`http://`+networkHost+`/internal/join/`+node.hostname, `application/json`, nil)
+	if err != nil {
+		log.Error(err, `failed initiating internal join request`)
+		return ``, ``, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return ``, ``, extractError(res)
+	}
+
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Error(err, `failed reading json body of internal join response`)
+		return ``, ``, err
+	}
+
+	var newNeighbors internalJoinRes
+	err = json.Unmarshal(data, &newNeighbors)
+	if err != nil {
+		log.Error(err, `failed unmarshalling json response of internal join`)
+		return ``, ``, err
+	}
+
+	logger.Log.Debug(fmt.Sprintf(`internal join was initiated successfully to %s`, networkHost))
+	return newNeighbors.Predecessor, newNeighbors.Successor, nil
+}
+
+func (c *Client) proceedJoin(hostname string, req *http.Request) (int, error) {
+	u, err := url.Parse(`http://` + c.sucHostname + `/internal/join/` + hostname)
 	if err != nil {
 		log.Error(err, `failed parsing successor join url`)
 		return 0, err
@@ -110,12 +140,12 @@ func (c *Client) proceedJoin(key string, req *http.Request) (int, error) {
 		return 0, extractError(res)
 	}
 
-	logger.Log.Debug(fmt.Sprintf(`internal join for key:%s was proceeded successfully to %s`, key, c.sucHostname))
+	logger.Log.Debug(fmt.Sprintf(`internal join for hostname:%s was proceeded successfully to %s`, hostname, c.sucHostname))
 	return res.StatusCode, nil
 }
 
 func (c *Client) notifyPredecessor(hostname string) error {
-	res, err := c.Client.Post(`http://` + c.predHostname + `/internal/update-successor` + hostname, `application/json`, nil)
+	res, err := c.Client.Post(`http://`+c.predHostname+`/internal/update-successor`+hostname, `application/json`, nil)
 	if err != nil {
 		log.Error(err, `failed sending inform predecessor request`)
 		return err

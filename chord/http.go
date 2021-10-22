@@ -16,11 +16,12 @@ import (
 
 // error definitions
 const (
-	errParamKey  = `invalid path parameter (key)`
-	errParamHost = `invalid path parameter (host)`
-	errEncode    = `encoding error response failed`
-	errBucket    = `checking bucket failed`
-
+	errParamKey   = `invalid path parameter (key)`
+	errParamHost  = `invalid path parameter (host)`
+	errParamPrime = `invalid query parameter (nprime)`
+	errEncode     = `encoding error response failed`
+	errBucket     = `checking bucket failed`
+	errJoin 	  = `initiating join failed`
 	errStore      = `requested key does not exist in store`
 	errReadBody   = `failed to read request body`
 	errUnmarshall = `unmarshalling request body failed`
@@ -28,14 +29,19 @@ const (
 
 func InitServer(ctx context.Context) {
 	r := mux.NewRouter()
+	// http endpoints for store operations
 	r.HandleFunc(`/storage/{key}`, retrieveVal).Methods(http.MethodGet)
 	r.HandleFunc(`/storage/{key}`, storeVal).Methods(http.MethodPut)
-	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
 
+	// http endpoints for join and leave
+	r.HandleFunc(`/join`, join).Methods(http.MethodPost)
 	r.HandleFunc(`/internal/join/{host}`, internalJoin).Methods(http.MethodPost)
 	r.HandleFunc(`/internal/update-successor/{host}`, updateSuccessor).Methods(http.MethodPost)
-	logger.Log.InfoContext(ctx, `initializing http server`)
 
+	// http endpoints for debugging the network
+	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
+
+	logger.Log.InfoContext(ctx, `initializing http server`)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(Config.Port), r))
 }
 
@@ -178,9 +184,37 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 
 /* dynamic join and leave functionality */
 
-type internalJoinRes struct {
-	Predecessor string `json:"predecessor"`
-	Successor   string `json:"successor"`
+func join(w http.ResponseWriter, r *http.Request) {
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for join`)
+
+	networkHost := r.URL.Query().Get(`nprime`)
+	if networkHost == `` {
+		w.WriteHeader(http.StatusBadRequest)
+		logger.Log.Error(errParamPrime, r.URL.String())
+		_, err := w.Write([]byte(`query param nprime is missing`))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	pred, suc, err := neighbors.initJoin(networkHost)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.ErrorContext(ctx, err, errJoin, networkHost)
+		_, err = w.Write([]byte(err.Error()))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	neighbors.updateSuccessor(suc)
+	neighbors.updatePredecessor(pred)
+
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 func internalJoin(w http.ResponseWriter, r *http.Request) {
