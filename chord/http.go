@@ -24,10 +24,14 @@ const (
 	errEncode     = `encoding error response failed`
 	errBucket     = `checking bucket failed`
 	errJoin       = `initiating join failed`
-	errLeave 	  = `leaving of node failed`
+	errLeave      = `leaving of node failed`
 	errStore      = `requested key does not exist in store`
 	errReadBody   = `failed to read request body`
 	errUnmarshall = `unmarshalling request body failed`
+)
+
+var (
+	crashChan = make(chan bool)
 )
 
 func InitServer(ctx context.Context) {
@@ -43,6 +47,10 @@ func InitServer(ctx context.Context) {
 	r.HandleFunc(`/internal/update-successor/{host}`, updateSuccessor).Methods(http.MethodPost)
 	r.HandleFunc(`/internal/update-predecessor/{host}`, updatePredecessor).Methods(http.MethodPost)
 
+	// http endpoints for crash
+	r.HandleFunc(`/sim-crash`, simulateCrash).Methods(http.MethodPost)
+	r.HandleFunc(`/sim-recover`, recoverCrash).Methods(http.MethodPost)
+
 	// http endpoints for debugging the network
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
 
@@ -51,6 +59,14 @@ func InitServer(ctx context.Context) {
 }
 
 func getNeighbours(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	res := []string{neighbors.predHostname, neighbors.sucHostname}
 
 	// writing the response
@@ -63,6 +79,14 @@ func getNeighbours(w http.ResponseWriter, r *http.Request) {
 }
 
 func retrieveVal(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	ctx := traceableContext.WithUUID(uuid.New())
 	logger.Log.DebugContext(ctx, `request received for get key`)
 
@@ -127,6 +151,14 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 }
 
 func storeVal(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	ctx := traceableContext.WithUUID(uuid.New())
 	logger.Log.DebugContext(ctx, `request received for store key`)
 
@@ -190,6 +222,14 @@ func storeVal(w http.ResponseWriter, r *http.Request) {
 /* dynamic join and leave functionality */
 
 func join(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	ctx := traceableContext.WithUUID(uuid.New())
 	logger.Log.DebugContext(ctx, `request received for join`)
 
@@ -223,6 +263,14 @@ func join(w http.ResponseWriter, r *http.Request) {
 }
 
 func internalJoin(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	ctx := traceableContext.WithUUID(uuid.New())
 	logger.Log.DebugContext(ctx, `request received for internal join`)
 
@@ -306,6 +354,14 @@ func internalJoin(w http.ResponseWriter, r *http.Request) {
 }
 
 func leave(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	ctx := traceableContext.WithUUID(uuid.New())
 	logger.Log.DebugContext(ctx, `request received for leave`)
 
@@ -332,8 +388,8 @@ func leave(w http.ResponseWriter, r *http.Request) {
 	}(wg)
 
 	wg.Wait()
-	err1 := <- resChan
-	err2 := <- resChan
+	err1 := <-resChan
+	err2 := <-resChan
 	if err1 != nil || err2 != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		_, err := w.Write([]byte(errLeave))
@@ -348,6 +404,14 @@ func leave(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateSuccessor(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	ctx := traceableContext.WithUUID(uuid.New())
 	logger.Log.DebugContext(ctx, `request received for internal update successor`)
 
@@ -368,6 +432,14 @@ func updateSuccessor(w http.ResponseWriter, r *http.Request) {
 }
 
 func updatePredecessor(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
 	ctx := traceableContext.WithUUID(uuid.New())
 	logger.Log.DebugContext(ctx, `request received for internal update predecessor`)
 
@@ -384,5 +456,27 @@ func updatePredecessor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	neighbors.updatePredecessor(hostname)
+	w.WriteHeader(http.StatusOK)
+}
+
+func simulateCrash(_ http.ResponseWriter, _ *http.Request) {
+	if !node.alive {
+		return
+	}
+
+	node.crash()
+	for true {
+		<- crashChan
+		return
+	}
+}
+
+func recoverCrash(w http.ResponseWriter, _ *http.Request) {
+	if node.alive {
+		return
+	}
+
+	crashChan <- true
+	node.recover()
 	w.WriteHeader(http.StatusOK)
 }

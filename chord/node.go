@@ -18,6 +18,7 @@ type Node struct {
 	predId   *big.Int
 	sucId    *big.Int
 	single   bool
+	alive 	 bool
 }
 
 var node *Node
@@ -34,7 +35,7 @@ func InitNode(ctx context.Context) {
 	}
 
 	hostname := osName[:len(osName)-6] + `:` + strconv.Itoa(Config.Port)
-	node = &Node{hostname: hostname, id: bucketId(hostname), single: true}
+	node = &Node{hostname: hostname, id: bucketId(hostname), single: true, alive: true}
 	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id = %d`, hostname, node.id))
 }
 
@@ -81,6 +82,14 @@ func (n *Node) checkKey(key string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (n *Node) crash() {
+	n.alive = false
+}
+
+func (n *Node) recover() {
+	n.alive = true
 }
 
 func bucketId(key string) *big.Int {
