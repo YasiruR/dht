@@ -1,11 +1,11 @@
 # service configs
 port: 52520
-request_timeout_sec: 8
+request_timeout_sec: 5
 ttl_min: 180
 
 # neighbour configs
 probe_interval_sec: 10
-detect_crash_interval_sec: 5
+detect_crash_timeout_sec: 2
 
 # logger configs
 colors_enabled: true

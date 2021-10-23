@@ -9,11 +9,11 @@ import (
 )
 
 type Conf struct {
-	Port                int   `yaml:"port"`
-	RequestTimeout      int64 `yaml:"request_timeout_sec" default:"5"`
-	TTLDuration         int64 `yaml:"ttl_min" default:"180"`
-	ProbeInterval       int64 `yaml:"probe_interval_sec" default:"10"`
-	DetectCrashInterval int64 `yaml:"detect_crash_interval_sec" default:"5"`
+	Port               int   `yaml:"port"`
+	RequestTimeout     int64 `yaml:"request_timeout_sec" default:"5"`
+	TTLDuration        int64 `yaml:"ttl_min" default:"180"`
+	ProbeInterval      int64 `yaml:"probe_interval_sec" default:"10"`
+	DetectCrashTimeout int64 `yaml:"detect_crash_timeout_sec" default:"5"`
 }
 
 var Config *Conf
