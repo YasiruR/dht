@@ -26,8 +26,14 @@ const (
 	errJoin       = `initiating join failed`
 	errLeave      = `leaving of node failed`
 	errStore      = `requested key does not exist in store`
+	errFixCrash   = `fixing crash failed`
 	errReadBody   = `failed to read request body`
 	errUnmarshall = `unmarshalling request body failed`
+)
+
+// responses
+const (
+	noCrashResponse = `no-crash-detected`
 )
 
 var (
@@ -50,9 +56,11 @@ func InitServer(ctx context.Context) {
 	// http endpoints for crash
 	r.HandleFunc(`/sim-crash`, simulateCrash).Methods(http.MethodPost)
 	r.HandleFunc(`/sim-recover`, recoverCrash).Methods(http.MethodPost)
+	r.HandleFunc(`/internal/fix-crash/{host}`, fixCrash).Methods(http.MethodPost)
 
 	// http endpoints for debugging the network
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
+	r.HandleFunc(`/internal/probe`, probeEndpoint).Methods(http.MethodGet)
 
 	logger.Log.InfoContext(ctx, `initializing http server`)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(Config.Port), r))
@@ -391,7 +399,7 @@ func leave(w http.ResponseWriter, r *http.Request) {
 	err1 := <-resChan
 	err2 := <-resChan
 	if err1 != nil || err2 != nil {
-		w.WriteHeader(http.StatusBadGateway)
+		w.WriteHeader(http.StatusServiceUnavailable)
 		_, err := w.Write([]byte(errLeave))
 		if err != nil {
 			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
@@ -479,4 +487,70 @@ func recoverCrash(w http.ResponseWriter, _ *http.Request) {
 	crashChan <- true
 	node.recover()
 	w.WriteHeader(http.StatusOK)
+}
+
+func probeEndpoint(w http.ResponseWriter, _ *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func fixCrash(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for internal fix crash endpoint`)
+
+	// fetching hostname
+	hostname, ok := mux.Vars(r)[`host`]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		logger.Log.Error(errParamHost, r.URL.String())
+		_, err := w.Write([]byte(`invalid internal fix crash url with param hostname`))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	// no crash to fix if request comes to the initiated node
+	if hostname == node.hostname {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte(noCrashResponse))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	lastNode, err := neighbors.proceedFixCrash(hostname)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.ErrorContext(ctx, err, errFixCrash, hostname)
+		_, err = w.Write([]byte(errFixCrash))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write([]byte(lastNode))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+	}
 }

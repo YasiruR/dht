@@ -7,15 +7,20 @@ import (
 	"fmt"
 	"github.com/tryfix/log"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Client struct {
 	predHostname string
+	predLock     *sync.Mutex
 	sucHostname  string
+	sucLock      *sync.Mutex
+	crashClient	 *http.Client
 	*http.Client
 }
 
@@ -23,23 +28,79 @@ var neighbors *Client
 
 func InitClient(ctx context.Context) {
 	neighbors = &Client{
-		Client: &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
+		predLock: &sync.Mutex{},
+		sucLock:  &sync.Mutex{},
+		crashClient: &http.Client{Timeout: time.Duration(Config.DetectCrashInterval * 100) * time.Second},
+		Client:   &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
 	}
+	neighbors.initProbe()
 	logger.Log.InfoContext(ctx, `client initiated for neighbour requests`)
 }
 
+func (c *Client) initProbe() {
+	go func() {
+		ticker := time.NewTicker(time.Duration(Config.ProbeInterval) * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				if c.predHostname == `` || c.sucHostname == `` {
+					continue
+				}
+
+				// enclosed in an unnamed function to handle closing body properly
+				func() {
+					res, err := c.Client.Get(`http://` + c.predHostname + `/internal/probe`)
+					if err != nil {
+						if netErr, ok := err.(net.Error); ok {
+							if netErr.Timeout() {
+								lastNode, err := c.proceedFixCrash(node.hostname)
+								if err != nil {
+									logger.Log.Error(err, `initiating fix crash failed`)
+									return
+								}
+
+								if lastNode == noCrashResponse {
+									logger.Log.Debug(`fix crash was initiated but could not find any defect`)
+									return
+								}
+
+								c.updatePredecessor(lastNode)
+								logger.Log.Debug(`broken network ring was detected and fixed`, lastNode)
+								return
+							}
+						}
+						logger.Log.Error(err, `probing predecessor failed`)
+						return
+					}
+					defer res.Body.Close()
+				}()
+
+			}
+		}
+	}()
+}
+
 func (c *Client) updateSuccessor(hostname string) {
+	c.sucLock.Lock()
+	defer c.sucLock.Unlock()
 	c.sucHostname = hostname
 	node.updateSucId(hostname)
 }
 
 func (c *Client) updatePredecessor(hostname string) {
+	c.predLock.Lock()
+	defer c.predLock.Unlock()
 	c.predHostname = hostname
 	node.updatePredId(hostname)
 }
 
 func (c *Client) clearNeighbors() {
+	c.sucLock.Lock()
+	defer c.sucLock.Unlock()
 	c.sucHostname = ""
+
+	c.predLock.Lock()
+	defer c.predLock.Unlock()
 	c.predHostname = ""
 	node.leave()
 }
@@ -158,9 +219,9 @@ func (c *Client) proceedJoin(hostname string, req *http.Request) ([]byte, error)
 func (c *Client) notifyNeighbor(hostname string, predecessor bool) error {
 	var u string
 	if predecessor {
-		u = `http://`+c.predHostname+`/internal/update-successor/`+hostname
+		u = `http://` + c.predHostname + `/internal/update-successor/` + hostname
 	} else {
-		u = `http://`+c.sucHostname+`/internal/update-predecessor/`+hostname
+		u = `http://` + c.sucHostname + `/internal/update-predecessor/` + hostname
 	}
 
 	res, err := c.Client.Post(u, `application/json`, nil)
@@ -176,6 +237,60 @@ func (c *Client) notifyNeighbor(hostname string, predecessor bool) error {
 
 	logger.Log.Debug(fmt.Sprintf(`internal update of neighbor was proceeded successfully [predecessor: %t]`, predecessor))
 	return nil
+}
+
+func (c *Client) proceedFixCrash(initiator string) (string, error) {
+	ticker := time.NewTicker(time.Duration(Config.DetectCrashInterval) * time.Second)
+	resChan := make(chan string)
+	errChan := make(chan error)
+	go func() {
+		res, err := c.crashClient.Post(`http://`+c.sucHostname+`/internal/fix-crash/`+initiator, `text/plain`, nil)
+		if err != nil {
+			logger.Log.Error(err, `proceeding fix crash request failed`, initiator)
+			errChan <- err
+			return
+		}
+		defer res.Body.Close()
+
+		if res.StatusCode != http.StatusOK {
+			logger.Log.Error(`received non-2xx response code`, res.StatusCode)
+			errChan <- errors.New(`request failed`)
+			return
+		}
+
+		data, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			logger.Log.Error(err, `reading fix crash response body failed`, initiator)
+			errChan <- err
+			return
+		}
+
+		resChan <- string(data)
+	}()
+
+	for {
+		select {
+		case <-ticker.C:
+			// if detect period is reached check if the successor is alive and if so wait longer for the response. If not,
+			// current node is the last node.
+			_, err := c.Client.Get(`http://` + c.sucHostname + `/internal/probe`)
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok {
+					if netErr.Timeout() {
+						c.updateSuccessor(initiator)
+						logger.Log.Trace(`timed out as successor is out of reach`)
+						return node.hostname, nil
+					}
+				}
+				logger.Log.Error(err, `reaching successor in fix crash failed`, initiator)
+			}
+		case lastNode := <-resChan:
+			logger.Log.Trace(`immediate successor was reached successfully`, lastNode)
+			return lastNode, nil
+		case err := <-errChan:
+			return "", err
+		}
+	}
 }
 
 func extractError(res *http.Response) error {
