@@ -15,9 +15,9 @@ func main() {
 	logger.Init(ctx)
 
 	chord.InitConfigs(ctx)
+	chord.InitNode(ctx)
 	chord.InitClient(ctx)
 	chord.InitStore(ctx)
-	chord.InitNode(ctx)
 
 	go chord.TTL(ctx)
 	chord.InitServer(ctx)

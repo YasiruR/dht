@@ -40,6 +40,12 @@ var (
 	crashChan = make(chan bool)
 )
 
+type nodeInfoRes struct {
+	NodeHash	string		`json:"node_hash"`
+	Successor 	string		`json:"successor"`
+	Others 		[]string	`json:"others"`
+}
+
 func InitServer(ctx context.Context) {
 	r := mux.NewRouter()
 	// http endpoints for store operations
@@ -60,6 +66,7 @@ func InitServer(ctx context.Context) {
 
 	// http endpoints for debugging the network
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
+	r.HandleFunc(`/node-info`, getNodeInfo).Methods(http.MethodGet)
 	r.HandleFunc(`/internal/probe`, probeEndpoint).Methods(http.MethodGet)
 
 	logger.Log.InfoContext(ctx, `initializing http server`)
@@ -78,6 +85,29 @@ func getNeighbours(w http.ResponseWriter, r *http.Request) {
 	res := []string{neighbors.predHostname, neighbors.sucHostname}
 
 	// writing the response
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(res)
+	if err != nil {
+		logger.Log.Error(err, errEncode, r.URL.String())
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func getNodeInfo(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
+	res := nodeInfoRes{
+		NodeHash:  node.hexId,
+		Successor: neighbors.sucHostname,
+		Others:    []string{neighbors.predHostname},
+	}
+
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(res)
 	if err != nil {
@@ -467,16 +497,13 @@ func updatePredecessor(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func simulateCrash(_ http.ResponseWriter, _ *http.Request) {
+func simulateCrash(w http.ResponseWriter, _ *http.Request) {
 	if !node.alive {
 		return
 	}
 
 	node.crash()
-	for true {
-		<- crashChan
-		return
-	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func recoverCrash(w http.ResponseWriter, _ *http.Request) {

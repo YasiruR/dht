@@ -14,11 +14,12 @@ import (
 
 type Node struct {
 	hostname string
+	hexId    string
 	id       *big.Int
 	predId   *big.Int
 	sucId    *big.Int
 	single   bool
-	alive 	 bool
+	alive    bool
 }
 
 var node *Node
@@ -35,7 +36,9 @@ func InitNode(ctx context.Context) {
 	}
 
 	hostname := osName[:len(osName)-6] + `:` + strconv.Itoa(Config.Port)
-	node = &Node{hostname: hostname, id: bucketId(hostname), single: true, alive: true}
+	id, hexVal := bucketId(hostname)
+
+	node = &Node{hostname: hostname, id: id, hexId: hexVal, single: true, alive: true}
 	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id = %d`, hostname, node.id))
 }
 
@@ -43,7 +46,7 @@ func (n *Node) updatePredId(hostname string) {
 	if hostname != "" && hostname != n.hostname {
 		n.single = false
 	}
-	n.predId = bucketId(hostname)
+	n.predId, _ = bucketId(hostname)
 	logger.Log.Debug(fmt.Sprintf(`predecessor updated to %s`, hostname))
 }
 
@@ -51,7 +54,7 @@ func (n *Node) updateSucId(hostname string) {
 	if hostname != "" && hostname != n.hostname {
 		n.single = false
 	}
-	n.sucId = bucketId(hostname)
+	n.sucId, _ = bucketId(hostname)
 	logger.Log.Debug(fmt.Sprintf(`successor updated to %s`, hostname))
 }
 
@@ -64,7 +67,7 @@ func (n *Node) checkKey(key string) (bool, error) {
 		return true, nil
 	}
 
-	bucket := bucketId(key)
+	bucket, _ := bucketId(key)
 	logger.Log.Debug(fmt.Sprintf(`key: %s bucket_id: %d`, key, bucket))
 
 	// n.id < n.predId
@@ -92,9 +95,10 @@ func (n *Node) recover() {
 	n.alive = true
 }
 
-func bucketId(key string) *big.Int {
-	hexVal := sha256.Sum256([]byte(key))
+func bucketId(key string) (*big.Int, string) {
+	sum := sha256.Sum256([]byte(key))
+	hexVal := hex.EncodeToString(sum[:])
 	n := new(big.Int)
-	n.SetString(hex.EncodeToString(hexVal[:]), 16)
-	return n
+	n.SetString(hexVal, 16)
+	return n, hexVal
 }

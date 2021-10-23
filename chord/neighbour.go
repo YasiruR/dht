@@ -29,10 +29,12 @@ var neighbors *Client
 
 func InitClient(ctx context.Context) {
 	neighbors = &Client{
-		predLock:    &sync.Mutex{},
-		sucLock:     &sync.Mutex{},
-		crashClient: &http.Client{Timeout: time.Duration(Config.DetectCrashTimeout*100) * time.Second},
-		Client:      &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
+		predLock:     &sync.Mutex{},
+		sucLock:      &sync.Mutex{},
+		predHostname: node.hostname,
+		sucHostname:  node.hostname,
+		crashClient:  &http.Client{Timeout: time.Duration(Config.DetectCrashTimeout*100) * time.Second},
+		Client:       &http.Client{Timeout: time.Duration(Config.RequestTimeout) * time.Second},
 	}
 	neighbors.initProbe()
 	logger.Log.InfoContext(ctx, `client initiated for neighbour requests`)
@@ -41,92 +43,92 @@ func InitClient(ctx context.Context) {
 func (c *Client) initProbe() {
 	go func() {
 		ticker := time.NewTicker(time.Duration(Config.ProbeInterval) * time.Second)
-		probeLoop:
-			for {
-				select {
-				case <-ticker.C:
-					if c.predHostname == `` || c.sucHostname == `` {
-						continue
-					}
-
-					if len(c.lostPredList) != 0 {
-						for i, p := range c.lostPredList {
-							_, err := c.Client.Get(`http://` + p + `/internal/probe`)
-							if err != nil {
-								continue
-							}
-
-							joined := false
-							func(joined *bool) {
-								req, err := http.NewRequest(http.MethodPost, `http://` + p + `/join`, nil)
-								if err != nil {
-									logger.Log.Error(err, `creating request for join of crashed node failed`)
-									return
-								}
-								q := req.URL.Query()
-								if node.single {
-									q.Add(`nprime`, node.hostname)
-								} else {
-									// join request is forwarded to successor directly to reduce cost of http requests
-									q.Add(`nprime`, c.sucHostname)
-								}
-								req.URL.RawQuery = q.Encode()
-
-								res, err := c.Client.Do(req)
-								if err != nil {
-									logger.Log.Error(err, `join request to crashed node failed`)
-									return
-								}
-								defer res.Body.Close()
-
-								if res.StatusCode != http.StatusOK {
-									logger.Log.Debug(`received non-2xx response for join of crashed node`, res.StatusCode)
-									return
-								}
-
-								// updating lost list with only better predecessors
-								c.lostPredList = c.lostPredList[:i]
-								*joined = true
-							}(&joined)
-
-							if joined == true {
-								logger.Log.Trace(`crashed node join was successful`, c.lostPredList)
-								continue probeLoop
-							}
-						}
-					}
-
-					// enclosed in an unnamed function to handle closing body properly
-					func() {
-						res, err := c.Client.Get(`http://` + c.predHostname + `/internal/probe`)
-						if err != nil {
-							if netErr, ok := err.(net.Error); ok {
-								if netErr.Timeout() {
-									lastNode, err := c.proceedFixCrash(node.hostname)
-									if err != nil {
-										logger.Log.Error(err, `initiating fix crash failed`)
-										return
-									}
-
-									if lastNode == noCrashResponse {
-										logger.Log.Debug(`fix crash was initiated but could not find any defect`)
-										return
-									}
-
-									// no lock required since it will be always this go-routine that updates the list
-									c.lostPredList = append(c.lostPredList, c.predHostname)
-									c.updatePredecessor(lastNode)
-									logger.Log.Debug(`broken network ring was detected and fixed`, lastNode)
-									return
-								}
-							}
-							logger.Log.Error(err, `probing predecessor failed`)
-							return
-						}
-						defer res.Body.Close()
-					}()
+	probeLoop:
+		for {
+			select {
+			case <-ticker.C:
+				if node.single {
+					continue
 				}
+
+				if len(c.lostPredList) != 0 {
+					for i, p := range c.lostPredList {
+						_, err := c.Client.Get(`http://` + p + `/internal/probe`)
+						if err != nil {
+							continue
+						}
+
+						joined := false
+						func(joined *bool) {
+							req, err := http.NewRequest(http.MethodPost, `http://`+p+`/join`, nil)
+							if err != nil {
+								logger.Log.Error(err, `creating request for join of crashed node failed`)
+								return
+							}
+							q := req.URL.Query()
+							if node.single {
+								q.Add(`nprime`, node.hostname)
+							} else {
+								// join request is forwarded to successor directly to reduce cost of http requests
+								q.Add(`nprime`, c.sucHostname)
+							}
+							req.URL.RawQuery = q.Encode()
+
+							res, err := c.Client.Do(req)
+							if err != nil {
+								logger.Log.Error(err, `join request to crashed node failed`)
+								return
+							}
+							defer res.Body.Close()
+
+							if res.StatusCode != http.StatusOK {
+								logger.Log.Debug(`received non-2xx response for join of crashed node`, res.StatusCode)
+								return
+							}
+
+							// updating lost list with only better predecessors
+							c.lostPredList = c.lostPredList[:i]
+							*joined = true
+						}(&joined)
+
+						if joined == true {
+							logger.Log.Trace(`crashed node join was successful`, c.lostPredList)
+							continue probeLoop
+						}
+					}
+				}
+
+				// enclosed in an unnamed function to handle closing body properly
+				func() {
+					res, err := c.Client.Get(`http://` + c.predHostname + `/internal/probe`)
+					if err != nil {
+						if netErr, ok := err.(net.Error); ok {
+							if netErr.Timeout() {
+								lastNode, err := c.proceedFixCrash(node.hostname)
+								if err != nil {
+									logger.Log.Error(err, `initiating fix crash failed`)
+									return
+								}
+
+								if lastNode == noCrashResponse {
+									logger.Log.Debug(`fix crash was initiated but could not find any defect`)
+									return
+								}
+
+								// no lock required since it will be always this go-routine that updates the list
+								c.lostPredList = append(c.lostPredList, c.predHostname)
+								c.updatePredecessor(lastNode)
+								logger.Log.Debug(`broken network ring was detected and fixed`, lastNode)
+								return
+							}
+						}
+						logger.Log.Error(err, `probing predecessor failed`)
+						return
+					}
+					defer res.Body.Close()
+				}()
 			}
+		}
 	}()
 }
 
@@ -147,11 +149,11 @@ func (c *Client) updatePredecessor(hostname string) {
 func (c *Client) clearNeighbors() {
 	c.sucLock.Lock()
 	defer c.sucLock.Unlock()
-	c.sucHostname = ""
+	c.sucHostname = node.hostname
 
 	c.predLock.Lock()
 	defer c.predLock.Unlock()
-	c.predHostname = ""
+	c.predHostname = node.hostname
 	node.leave()
 }
 
