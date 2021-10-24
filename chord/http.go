@@ -28,6 +28,7 @@ const (
 	errLeave      = `leaving of node failed`
 	errStore      = `requested key does not exist in store`
 	errFixCrash   = `fixing crash failed`
+	errGetNodes   = `get nodes failed`
 	errReadBody   = `failed to read request body`
 	errUnmarshall = `unmarshalling request body failed`
 )
@@ -42,9 +43,14 @@ var (
 )
 
 type nodeInfoRes struct {
-	NodeHash	string		`json:"node_hash"`
-	Successor 	string		`json:"successor"`
-	Others 		[]string	`json:"others"`
+	NodeHash  string   `json:"node_hash"`
+	Successor string   `json:"successor"`
+	Others    []string `json:"others"`
+}
+
+type nodesRes struct {
+	NumOfNodes int      `json:"num_of_nodes"`
+	Nodes      []string `json:"nodes"`
 }
 
 func InitServer(ctx context.Context) {
@@ -59,6 +65,7 @@ func InitServer(ctx context.Context) {
 	r.HandleFunc(`/internal/join/{host}`, internalJoin).Methods(http.MethodPost)
 	r.HandleFunc(`/internal/update-successor/{host}`, updateSuccessor).Methods(http.MethodPost)
 	r.HandleFunc(`/internal/update-predecessor/{host}`, updatePredecessor).Methods(http.MethodPost)
+	r.HandleFunc(`/internal/terminate`, terminate).Methods(http.MethodPost)
 
 	// http endpoints for crash
 	r.HandleFunc(`/sim-crash`, simulateCrash).Methods(http.MethodPost)
@@ -68,8 +75,9 @@ func InitServer(ctx context.Context) {
 	// http endpoints for debugging the network
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
 	r.HandleFunc(`/node-info`, getNodeInfo).Methods(http.MethodGet)
+	r.HandleFunc(`/cluster-info`, getClusterInfo).Methods(http.MethodGet)
+	r.HandleFunc(`/internal/cluster-info/{host}`, internalClusterInfo).Methods(http.MethodGet)
 	r.HandleFunc(`/internal/probe`, probeEndpoint).Methods(http.MethodGet)
-	r.HandleFunc(`/internal/terminate`, terminate).Methods(http.MethodPost)
 
 	logger.Log.InfoContext(ctx, `initializing http server`)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(Config.Port), r))
@@ -581,6 +589,97 @@ func fixCrash(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+	}
+}
+
+func getClusterInfo(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for get cluster info endpoint`)
+
+	// url is not required since it will be anyway replaced later
+	req, err := http.NewRequest(http.MethodGet, ``, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.ErrorContext(ctx, err, `failed creating get request for cluster info`)
+		return
+	}
+
+	res, err := neighbors.proceedGetClusterInfo(node.hostname, req)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.ErrorContext(ctx, err, `initiating get nodes failed`, node.hostname)
+		_, err = w.Write([]byte(errGetNodes))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		logger.Log.ErrorContext(ctx, err, `get nodes encoding response failed`)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func internalClusterInfo(w http.ResponseWriter, r *http.Request) {
+	if !node.alive {
+		for true {
+			if node.alive {
+				return
+			}
+		}
+	}
+
+	ctx := traceableContext.WithUUID(uuid.New())
+	logger.Log.DebugContext(ctx, `request received for internal cluster info endpoint`)
+
+	// fetching hostname
+	hostname, ok := mux.Vars(r)[`host`]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		logger.Log.Error(errParamHost, r.URL.String())
+		_, err := w.Write([]byte(`invalid internal fix crash url with param hostname`))
+		if err != nil {
+			logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+		}
+		return
+	}
+
+	var res nodesRes
+	var err error
+	if hostname == node.hostname {
+		res = nodesRes{
+			NumOfNodes: 0,
+			Nodes:      []string{},
+		}
+	} else {
+		res, err = neighbors.proceedGetClusterInfo(hostname, r)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logger.Log.ErrorContext(ctx, err, `proceeding get nodes failed`, hostname)
+			_, err = w.Write([]byte(errGetNodes))
+			if err != nil {
+				logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
+			}
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		logger.Log.ErrorContext(ctx, err, `get nodes encoding response failed`)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 

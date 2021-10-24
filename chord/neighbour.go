@@ -3,6 +3,7 @@ package chord
 import (
 	"context"
 	"dht/logger"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tryfix/log"
@@ -343,6 +344,45 @@ func (c *Client) proceedFixCrash(initiator string) (string, error) {
 			return "", err
 		}
 	}
+}
+
+func (c *Client) proceedGetClusterInfo(hostname string, req *http.Request) (nodesRes, error) {
+	u, err := url.Parse(`http://` + c.sucHostname + `/internal/cluster-info/` + hostname)
+	if err != nil {
+		log.Error(err, `failed parsing successor get nodes url`)
+		return nodesRes{}, err
+	}
+
+	req.RequestURI = ""
+	req.URL = u
+	res, err := c.Client.Do(req)
+	if err != nil {
+		return nodesRes{}, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nodesRes{}, extractError(res)
+	}
+
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		logger.Log.Error(err, `reading get nodes body failed`)
+		return nodesRes{}, err
+	}
+
+	var nodes nodesRes
+	err = json.Unmarshal(data, &nodes)
+	if err != nil {
+		logger.Log.Error(err, `unmarshalling get nodes response failed`)
+		return nodesRes{}, err
+	}
+
+	nodes.NumOfNodes++
+	nodes.Nodes = append(nodes.Nodes, node.hostname)
+
+	logger.Log.Debug(fmt.Sprintf(`get nodes was successfully proceeded to %s`, c.sucHostname))
+	return nodes, nil
 }
 
 func extractError(res *http.Response) error {
