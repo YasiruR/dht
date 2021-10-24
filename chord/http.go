@@ -48,10 +48,10 @@ type nodeInfoRes struct {
 	Others    []string `json:"others"`
 }
 
-type nodesRes struct {
-	NumOfNodes int      `json:"num_of_nodes"`
-	Nodes      []string `json:"nodes"`
-}
+//type nodesRes struct {
+//	NumOfNodes int      `json:"num_of_nodes"`
+//	Nodes      []string `json:"nodes"`
+//}
 
 func InitServer(ctx context.Context) {
 	r := mux.NewRouter()
@@ -612,7 +612,7 @@ func getClusterInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := neighbors.proceedGetClusterInfo(node.hostname, req)
+	numOfNodes, err := neighbors.proceedGetClusterInfo(node.hostname, req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Log.ErrorContext(ctx, err, `initiating get nodes failed`, node.hostname)
@@ -624,7 +624,7 @@ func getClusterInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(res)
+	_, err = w.Write([]byte(numOfNodes))
 	if err != nil {
 		logger.Log.ErrorContext(ctx, err, `get nodes encoding response failed`)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -655,15 +655,12 @@ func internalClusterInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var res nodesRes
+	var numOfNodes string
 	var err error
 	if hostname == node.hostname {
-		res = nodesRes{
-			NumOfNodes: 0,
-			Nodes:      []string{},
-		}
+		numOfNodes = `0`
 	} else {
-		res, err = neighbors.proceedGetClusterInfo(hostname, r)
+		numOfNodes, err = neighbors.proceedGetClusterInfo(hostname, r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logger.Log.ErrorContext(ctx, err, `proceeding get nodes failed`, hostname)
@@ -676,7 +673,7 @@ func internalClusterInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(res)
+	_, err = w.Write([]byte(numOfNodes))
 	if err != nil {
 		logger.Log.ErrorContext(ctx, err, `get nodes encoding response failed`)
 		w.WriteHeader(http.StatusInternalServerError)

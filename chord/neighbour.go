@@ -3,7 +3,6 @@ package chord
 import (
 	"context"
 	"dht/logger"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tryfix/log"
@@ -11,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -346,43 +346,40 @@ func (c *Client) proceedFixCrash(initiator string) (string, error) {
 	}
 }
 
-func (c *Client) proceedGetClusterInfo(hostname string, req *http.Request) (nodesRes, error) {
+func (c *Client) proceedGetClusterInfo(hostname string, req *http.Request) (string, error) {
 	u, err := url.Parse(`http://` + c.sucHostname + `/internal/cluster-info/` + hostname)
 	if err != nil {
 		log.Error(err, `failed parsing successor get nodes url`)
-		return nodesRes{}, err
+		return "", err
 	}
 
 	req.RequestURI = ""
 	req.URL = u
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return nodesRes{}, err
+		return "", err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nodesRes{}, extractError(res)
+		return "", extractError(res)
 	}
 
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		logger.Log.Error(err, `reading get nodes body failed`)
-		return nodesRes{}, err
+		return "", err
 	}
 
-	var nodes nodesRes
-	err = json.Unmarshal(data, &nodes)
+	num, err := strconv.Atoi(string(data))
 	if err != nil {
-		logger.Log.Error(err, `unmarshalling get nodes response failed`)
-		return nodesRes{}, err
+		logger.Log.Error(err, `converting get nodes response to number failed`, string(data))
+		return "", err
 	}
 
-	nodes.NumOfNodes++
-	nodes.Nodes = append(nodes.Nodes, node.hostname)
-
+	num++
 	logger.Log.Debug(fmt.Sprintf(`get nodes was successfully proceeded to %s`, c.sucHostname))
-	return nodes, nil
+	return strconv.Itoa(num), nil
 }
 
 func extractError(res *http.Response) error {

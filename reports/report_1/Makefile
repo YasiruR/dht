@@ -1,10 +1,10 @@
 .PHONY: default clean
 
-default: report-template.pdf
+default: report.pdf
 
 clean:
 	git clean -fX .
-	rm report-template.pdf
+	rm report.pdf
 
 %.pdf: %.tex
 	lualatex $*.tex

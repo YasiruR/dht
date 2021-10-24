@@ -3,7 +3,7 @@ port: 52520
 request_timeout_sec: 5
 ttl_min: 180
 
-# neighbour configs
+# neighbor configs
 probe_interval_sec: 10
 detect_crash_timeout_sec: 2
 
