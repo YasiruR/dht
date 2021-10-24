@@ -11,6 +11,7 @@ import (
 	traceableContext "github.com/tryfix/traceable-context"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -68,6 +69,7 @@ func InitServer(ctx context.Context) {
 	r.HandleFunc(`/neighbors`, getNeighbours).Methods(http.MethodGet)
 	r.HandleFunc(`/node-info`, getNodeInfo).Methods(http.MethodGet)
 	r.HandleFunc(`/internal/probe`, probeEndpoint).Methods(http.MethodGet)
+	r.HandleFunc(`/internal/terminate`, terminate).Methods(http.MethodPost)
 
 	logger.Log.InfoContext(ctx, `initializing http server`)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(Config.Port), r))
@@ -580,4 +582,8 @@ func fixCrash(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Log.ErrorContext(ctx, err, errEncode, r.URL.String())
 	}
+}
+
+func terminate(_ http.ResponseWriter, _ *http.Request) {
+	os.Exit(0)
 }

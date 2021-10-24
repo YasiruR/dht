@@ -1,8 +1,0 @@
-compute-8-5
-compute-8-6
-compute-8-7
-compute-8-8
-compute-8-9
-compute-8-10
-compute-8-11
-compute-8-12
