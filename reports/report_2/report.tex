@@ -83,19 +83,17 @@ Following HTTP endpoints are exposed to serve store functionalities as well as t
 \section{Project Description}
 \subsection{Design}
 
-Each individual node in the network is given an id based on the SHA256 hash value of its own hostname and is only aware of its neighbours, i.e. predecessor and successor. These values can be configured before the execution of a node. \\
-
-Whenever a query is received by a node, it initially checks whether the requested key belongs to itself and if not, it proceeds to the immediate successor. This process is iterated until the correct node for key is discovered and the corresponding response is returned along the same route. \\
+Each individual node in the network is given an id based on the SHA256 hash value of its own hostname and is only aware of its neighbours, i.e. predecessor and successor. Whenever a query is received by a node, it initially checks whether the requested key belongs to itself and if not, it proceeds to the immediate successor. This process is iterated until the correct node for key is discovered and the corresponding response is returned along the same route. \\
 
 When joining the network, a request is sent to the new node along with an existing node in the cluster and thus a join is initiated to this entry point where it starts circulating the request until the corresponding successor of new node is reached. This successor then updates its new predecessor while notifying the ex-predecessor to update its successor. Once this circulation is successful, neighbors of the new node will be returned by the response and updated in the joining node.\\
 
 On the other hand, a node notifies both its predecessor and successor upon leaving, to update their neighbors accordingly. Since these two requests are independent of each other, they can be executed in parallel thus saving an overhead latency of multiple requests. In both these scenarios, bucket space will be adjusted with respect to the network change. \\
 
-Moreover, a probing mechanism is implemented in each node to detect any out of reach condition of its predecessor and automatically rectify with active nodes by eliminating the crashed node. Once a crash is recognized, the successor will circulate an internal HTTP request until the last active node is found and thus updating a new connection between these two nodes. Immediate successors also keep track of these disconnected nodes to add once they become reachable again and this check is done in the order of proximity, i.e. closest lost node will be checked before the rest and so on. However, this system does not support the migration of existing key-value pairs when changing the components of network.
+Moreover, a probing mechanism is implemented in each node with a configured timeout to detect any out of reach condition of its predecessor and automatically rectify with active nodes by eliminating the crashed node. Once a crash is recognized, the successor will circulate an internal HTTP request until the last active node is found and thus updating a new connection between these two nodes. Immediate successors also keep track of these disconnected nodes to add once they become reachable again and this check is done in the order of proximity, i.e. closest lost node will be checked before the rest and so on. However, this system does not support the migration of existing key-value pairs when changing the components of network.
 
 \subsection{Implementation}
 
-Golang was used for the implementation of chord with a flat-hierarchical code structure and different layers for each functionality. HTTP endpoints listed previously were implemented in HTTP layer while node layer contains details (node id, predecessor, successor) related with the node along with validating key function. SHA256 was used for hashing of both key and node id to match with relevant buckets. A separate HTTP client was used in neighbour layer to proceed any request with a key that does not belong to the corresponding node. All key-value entry pairs are stored in an in-memory map which is specifically designed for concurrent use.\\
+Golang was used for the implementation of chord with a flat-hierarchical code structure and different layers for each functionality. HTTP endpoints listed previously were implemented in HTTP layer while node layer contains details (node id, predecessor, successor) related with the node along with validating key function. SHA256 was used for hashing of both key and node id to match with relevant buckets. All the outgoing HTTP requests to neighbors are implemented in neighbor layer and An HTTP client was used to proceed any request with a key that does not belong to the corresponding node. All key-value entry pairs are stored in an in-memory map which is specifically designed for concurrent use.\\
 
 A sample set is given below for the configuration values of parameters required by the implementation but however user is allowed to provide his own desired values for service configurations. 
 
@@ -117,10 +115,15 @@ file_path: true
 
 \texttt{request\_timeout\_sec} refers to the waiting time of a single HTTP request by a node in seconds and each node has a TTL in minutes for the self-termination configured by \texttt{ttl\_min}. \texttt{probe\_interval\_sec} is used as the time interval in which each node is checking if their immediate predecessors are reachable. A separate HTTP client is used to detect whether a successor is not responsive in finding the last active node triggered by a node crash. This detection is done with a timeout configured by \texttt{detect\_crash\_timeout\_sec}.
 
+Responses of all endpoints except for node-info are returned as raw body since unmarshalling operation in golang is quite expensive and doing this in every node per request will be tedious. Instead, conversion of byte array directly into string for further processing was used thus saving the overhead.
+
+Go HTTP server implicitly uses different go-routines per each request hence use of mutex locks were required when updating states of neighbors in each node.
+
 \section{Evaluation}
 
-Several experiments were carried out to evaluate performance and stability of network with dynamic changes in the structure. First experiment was conducted to measure the time consumption of network to stabilize after varying number of joins of nodes. This was achieved by sending sequential join requests to every node and logging timestamps with each node's action. Total time to stabilize was taken as the time difference between initial join action and the last neighbor update by a node. Finally cluster information response was considered to ensure that the network consisted of the desired number of nodes.\\
+Several experiments were carried out to evaluate performance and stability of network with dynamic changes in the structure. First experiment was conducted to measure the time consumption of network to stabilize after different number of joins of nodes in each test attempt. This was achieved by sending sequential join requests to every initialized node (but not connected) and logging timestamps with each node's action. Total time to stabilize was taken as the time difference between initial join action and the last neighbor update by a node. Finally cluster information response was considered to ensure that the network consisted of desired number of nodes.\\
 
+A similar experiment was conducted to measure stability of network upon leaving of nodes. In this experiment, different number of nodes were initialized and connected after which a half of the joined nodes were requested to leave. These messages were sent sequentially to nodes and total time for stabilization was calculated as before (time difference between initial leave request and last neighbor update).\\
 
 Table 1 and 2 provide details about hardware specifications of nodes and sets of nodes used in each experiment.
 

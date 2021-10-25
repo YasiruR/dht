@@ -1,4 +1,6 @@
 .idea
 vendor
-./tester/tester
+./tester/store/store
+./tester/store/tester
 dht
+./tester/stability/stability

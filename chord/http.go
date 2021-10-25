@@ -48,11 +48,6 @@ type nodeInfoRes struct {
 	Others    []string `json:"others"`
 }
 
-//type nodesRes struct {
-//	NumOfNodes int      `json:"num_of_nodes"`
-//	Nodes      []string `json:"nodes"`
-//}
-
 func InitServer(ctx context.Context) {
 	r := mux.NewRouter()
 	// http endpoints for store operations

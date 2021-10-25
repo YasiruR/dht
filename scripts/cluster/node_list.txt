@@ -20,7 +20,7 @@ compute-6-38
 compute-6-39
 compute-6-40
 compute-6-41
-compute-6-42
+compute-3-22
 compute-6-43
 compute-6-44
 compute-6-45
