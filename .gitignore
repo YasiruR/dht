@@ -4,3 +4,4 @@ vendor
 ./tester/store/tester
 dht
 ./tester/stability/stability
+./scripts/*.pdf

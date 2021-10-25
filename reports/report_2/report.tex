@@ -83,7 +83,7 @@ Following HTTP endpoints are exposed to serve store functionalities as well as t
 \section{Project Description}
 \subsection{Design}
 
-Each individual node in the network is given an id based on the SHA256 hash value of its own hostname and is only aware of its neighbours, i.e. predecessor and successor. Whenever a query is received by a node, it initially checks whether the requested key belongs to itself and if not, it proceeds to the immediate successor. This process is iterated until the correct node for key is discovered and the corresponding response is returned along the same route. \\
+Each individual node in the network is given an id based on the SHA256 hash value of its own hostname and is only aware of its neighbours, i.e. predecessor and successor. Whenever a query is received by a node, it initially checks whether the requested key belongs to itself and if not, it proceeds to the immediate successor. This process is iterated until the correct node for key is discovered and the corresponding response is returned along the same route.\\
 
 When joining the network, a request is sent to the new node along with an existing node in the cluster and thus a join is initiated to this entry point where it starts circulating the request until the corresponding successor of new node is reached. This successor then updates its new predecessor while notifying the ex-predecessor to update its successor. Once this circulation is successful, neighbors of the new node will be returned by the response and updated in the joining node.\\
 
@@ -117,7 +117,7 @@ file_path: true
 
 Responses of all endpoints except for node-info are returned as raw body since unmarshalling operation in golang is quite expensive and doing this in every node per request will be tedious. Instead, conversion of byte array directly into string for further processing was used thus saving the overhead. \\
 
-Go HTTP server implicitly uses different go-routines per each request hence use of mutex locks were required when updating states of neighbors in each node.
+Go HTTP server implicitly uses different go-routines per each request hence use of mutex locks were required when updating states of neighbors in each node. It is assumed that host names are always in the correct form but however, a regex can be added for validation if required.
 
 \section{Evaluation}
 
@@ -182,7 +182,7 @@ Following are the average stabilization times taken for the above experiments in
 		\hline		
 	\end{tabular}%
 }
-\caption{Results of experiments 1 and 2 with average times for stabilization}
+\caption{Results of experiment 1 and 2 with average times for stabilization}
 \end{table}
 
 Note that time measured in third experiment is taken after stabilization of all partitioned networks and also includes a timeout configured as 1 second in detecting the last active node. An initial size of 50 connected nodes was considered in each test attempt of crashing.
@@ -212,53 +212,38 @@ Note that time measured in third experiment is taken after stabilization of all 
 
 \section{Discussion}
 
-Following histograms (Figure 2 and 3) with error bars for standard deviation~\cite{2} were derived by using the above results where y-axis implies the calculated average time and x-axis denotes the experiments in the form of (number of nodes, number of requests).\\
+Figure 1 below shows the average times taken for stabilization of experiment 1 and 2 (join and leave respectively) in seconds with error bars for standard deviation~\cite{3}. It is also assumed that latency incurred by logging operations are negligible when compared to the above measured average times.
 
 \setlength{\intextsep}{10pt plus 2pt minus 0pt}
 \begin{figure}[!ht]
 	\centering
-	\includegraphics[width=7.5cm, height=5cm]{get.pdf}
-	\caption{Histogram of average times for GET requests with different parameters}
+	\includegraphics[width=7.5cm, height=5cm]{join_and_leave_bar.pdf}
+	\caption{Histogram of average times for different nodes in experiment 1 and 2}
 \end{figure}
 
-\setlength{\intextsep}{5pt plus 2pt minus 0pt}
+Above graph implies that time to stabilize after a dynamic change (joining or leaving of nodes) in the network structure increases with number of nodes changed. This can be justified by the increase of requests passed among active nodes with the intention of adjusting the network structure. This overhead can be expected to be reduced if finger tables are used instead of adjacent neighbor communication as the lookup cost will be O(log$_2$n) thus minimizing the number of requests used.\\
+
+Moreover, it was observed that a leave test scenario for the same number of nodes as a join, consumes only around a half of the latency of the join operation. This can be explained by the circulation of additional requests incurred by join procedure in finding the node's bucket space whereas node communicates directly and simultaneously with adjacent neighbors upon leaving.\\
+
+Figure 2 illustrates the average times taken by experiment 3 for different number of crash nodes. Note that the adjusted latency is used in constructing the graph by reducing the detection timeout of 1 second in which a node will idly be waiting for a response.\\
+
+\setlength{\intextsep}{10pt plus 2pt minus 0pt}
 \begin{figure}[!ht]
 	\centering
-	\includegraphics[width=7.5cm, height=5cm]{put.pdf}
-	\caption{Histogram of average times for PUT requests with different parameters}
+	\includegraphics[width=7.5cm, height=5cm]{crash_bar.pdf}
+	\caption{Histogram of corrected average times for different nodes in experiment 3}
 \end{figure}
 
-Line graphs in Figure 4 and 5 were constructed for more precise interpretation and comparison of experiment results.\\
-
-\setlength{\intextsep}{7pt plus 2pt minus 0pt}
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=7.5cm, height=5cm]{put_line.pdf}
-	\caption{Line graph of average times for PUT requests with different parameters}
-\end{figure}
-
-\setlength{\intextsep}{5pt plus 2pt minus 0pt}
-\begin{figure}[!ht]
-	\centering
-	\includegraphics[width=7.5cm, height=5cm]{get_line.pdf}
-	\caption{Line graph of average times for GET requests with different parameters}
-\end{figure}
-
-By observing these charts, it is obvious that response times increase with number of nodes in the network for a particular batch of requests and can this be explained by the rise in redundant HTTP calls among nodes when a network expands. However, this increasing factor seems to be diminishing when the size of the request batch increases. \\
-
-Furthermore, for a given network with a fixed number of nodes, latency decreases as opposed to number of requests in the batch. A possible reason for this observation could be that the capability of a node to process query requests asynchronously while the rest are still in progress or being circulated in the network and thus maximizing the throughput relatively.\\
-
-This entire behaviour is consistent across both request types (GET and PUT) despite the minor variations in latency. Lower average times are highly possible if the communication among nodes can be replaced with a better approach.
+This graph shows that the implemented key-value store responds with a more or less time duration with a slightly increasing rate for different number of simultaneous crashes. Also it was observed that for higher number of crashes (preferably higher than 20), a few number of nodes had failed with elimination and re-establishment of the active nodes. This resulted in malfunctioning of a portion of partitioned networks while the rest had succeeded in rebuilding the connections.
 
 \section{Conclusion}
-
-Finally, it can be concluded that the implemented key-value store is more appropriate when the number of queries is higher in terms of the performance for a given network of nodes. In contrast, number of nodes in the network has a negative impact on the query latency. \\ 
-
-Thus, the distributed key-value store should be designed with a preferable number of nodes such that it addresses the trade-off between performance and other quantitative/non-quantitative measures of a distributed system (scalability, accessibility, load of queries, fault tolerance etc.) depending on the requirements of a given scenario.
 
 \begin{thebibliography}{9}	
 	\bibitem{chord}
 	Ion Stoica, Robert Morris, David Karger, M. Frans Kaashoek, Hari Balakrishnan (2001) \emph{Chord: A Scalable Peer-to-Peer Lookup Service for Internet Applications }, MIT Laboratory for Computer Science.
+	
+	\bibitem{hash}
+	A. L. Selvakumar and C. S. Ganadhas (2009) \emph{The Evaluation Report of SHA-256 Crypt Analysis Hash Function} International Conference on Communication Software and Networks
 	
 	\bibitem{error}
 	Lee, Dong and In, Junyong and Lee, Sangseok (2015) \emph{Standard deviation and standard error of the mean}, Korean journal of anesthesiology.
