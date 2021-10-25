@@ -238,12 +238,14 @@ This graph shows that the implemented key-value store responds with a more or le
 
 \section{Conclusion}
 
+It is vital to address inconsistent nature of distributed systems as the existence of nodes can not be predicted. The implemented solution seems to be performing better with respect to this behavior. However it still possesses the disadvantage of passing HTTP requests all around the network since each node is only aware of its neighbors and even this can be improved with the integration of finger tables. 
+
 \begin{thebibliography}{9}	
 	\bibitem{chord}
 	Ion Stoica, Robert Morris, David Karger, M. Frans Kaashoek, Hari Balakrishnan (2001) \emph{Chord: A Scalable Peer-to-Peer Lookup Service for Internet Applications }, MIT Laboratory for Computer Science.
 	
 	\bibitem{hash}
-	A. L. Selvakumar and C. S. Ganadhas (2009) \emph{The Evaluation Report of SHA-256 Crypt Analysis Hash Function} International Conference on Communication Software and Networks
+	A. L. Selvakumar and C. S. Ganadhas (2009) \emph{The Evaluation Report of SHA-256 Crypt Analysis Hash Function} International Conference on Communication Software and Networks.
 	
 	\bibitem{error}
 	Lee, Dong and In, Junyong and Lee, Sangseok (2015) \emph{Standard deviation and standard error of the mean}, Korean journal of anesthesiology.
