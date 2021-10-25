@@ -52,6 +52,7 @@ func (c *Client) initProbe() {
 					continue
 				}
 
+				// checking if any lost nodes are alive again
 				if len(c.lostPredList) != 0 {
 					for i, p := range c.lostPredList {
 						_, err := c.Client.Get(`http://` + p + `/internal/probe`)
@@ -99,12 +100,17 @@ func (c *Client) initProbe() {
 					}
 				}
 
+				if c.predHostname == node.hostname {
+					continue
+				}
+
 				// enclosed in an unnamed function to handle closing body properly
 				func() {
 					res, err := c.Client.Get(`http://` + c.predHostname + `/internal/probe`)
 					if err != nil {
 						if netErr, ok := err.(net.Error); ok {
 							if netErr.Timeout() {
+								logger.Log.Info(fmt.Sprintf(`predecessor [%s] of node %s was detected as a crash`, c.predHostname, node.hostname))
 								lastNode, err := c.proceedFixCrash(node.hostname)
 								if err != nil {
 									logger.Log.Error(err, `initiating fix crash failed`)
@@ -119,7 +125,7 @@ func (c *Client) initProbe() {
 								// no lock required since it will be always this go-routine that updates the list
 								c.lostPredList = append(c.lostPredList, c.predHostname)
 								c.updatePredecessor(lastNode)
-								logger.Log.Debug(`broken network ring was detected and fixed`, lastNode)
+								logger.Log.Info(`broken network ring was detected and fixed`, lastNode)
 								return
 							}
 						}
