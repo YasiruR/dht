@@ -9,14 +9,17 @@ import (
 	"github.com/tryfix/log"
 	"math/big"
 	"os"
+	"strconv"
 )
 
 type Node struct {
 	hostname string
-	id       int
-	predId   int
-	sucId    int
+	hexId    string
+	id       *big.Int
+	predId   *big.Int
+	sucId    *big.Int
 	single   bool
+	alive    bool
 }
 
 var node *Node
@@ -32,34 +35,31 @@ func InitNode(ctx context.Context) {
 		log.FatalContext(ctx, `os name has a different syntax`, osName)
 	}
 
-	hostname := osName[:len(osName)-6]
+	hostname := osName[:len(osName)-6] + `:` + strconv.Itoa(Config.Port)
+	id, hexVal := bucketId(hostname)
 
-	id, err := bucketId(hostname)
-	if err != nil {
-		log.FatalContext(ctx, err, `failed to get the id of the node'`)
+	node = &Node{hostname: hostname, id: id, hexId: hexVal, single: true, alive: true}
+	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id = %d`, hostname, node.id))
+}
+
+func (n *Node) updatePredId(hostname string) {
+	if hostname != "" && hostname != n.hostname {
+		n.single = false
 	}
+	n.predId, _ = bucketId(hostname)
+	logger.Log.Debug(fmt.Sprintf(`predecessor updated to %s`, hostname))
+}
 
-	pId, err := bucketId(Config.Predecessor)
-	if err != nil {
-		log.FatalContext(ctx, err, `failed to get the id of the predecessor node'`)
+func (n *Node) updateSucId(hostname string) {
+	if hostname != "" && hostname != n.hostname {
+		n.single = false
 	}
+	n.sucId, _ = bucketId(hostname)
+	logger.Log.Debug(fmt.Sprintf(`successor updated to %s`, hostname))
+}
 
-	sId, err := bucketId(Config.Successor)
-	if err != nil {
-		log.FatalContext(ctx, err, `failed to get the id of the successor node'`)
-	}
-
-	if (Config.Successor == "" && Config.Predecessor != "") || (Config.Successor != "" && Config.Predecessor == "") {
-		log.FatalContext(ctx, `one of predecessor/successor is null`)
-	}
-
-	var singleNode bool
-	if Config.Successor == "" && Config.Predecessor == "" {
-		singleNode = true
-	}
-
-	node = &Node{hostname: hostname, id: id, predId: pId, sucId: sId, single: singleNode}
-	logger.Log.InfoContext(ctx, fmt.Sprintf(`%s node generated with id=%d, predecessor=%d and successor=%d `, hostname, id, pId, sId))
+func (n *Node) leave() {
+	n.single = true
 }
 
 func (n *Node) checkKey(key string) (bool, error) {
@@ -67,40 +67,38 @@ func (n *Node) checkKey(key string) (bool, error) {
 		return true, nil
 	}
 
-	bucket, err := bucketId(key)
-	if err != nil {
-		logger.Log.Error(err, `validating key failed`)
-		return false, err
-	}
-
+	bucket, _ := bucketId(key)
 	logger.Log.Debug(fmt.Sprintf(`key: %s bucket_id: %d`, key, bucket))
 
-	// handling the first node
-	if n.id < n.predId {
-		if bucket >= n.predId || bucket < n.id {
+	// n.id < n.predId
+	if n.id.Cmp(n.predId) == -1 {
+		// bucket >= n.predId or bucket < n.id
+		if bucket.Cmp(n.predId) == 1 || bucket.Cmp(n.predId) == 0 || bucket.Cmp(n.id) == -1 {
 			return true, nil
 		}
 		return false, nil
 	}
 
-	if bucket < n.id && bucket >= n.predId {
+	// bucket < n.id && bucket >= n.predId
+	if bucket.Cmp(n.id) == -1 && (bucket.Cmp(n.predId) == 1 || bucket.Cmp(n.predId) == 0) {
 		return true, nil
 	}
 
 	return false, nil
 }
 
-func bucketId(key string) (int, error) {
-	hexVal := sha256.Sum256([]byte(key))
-	n := new(big.Int)
-	n.SetString(hex.EncodeToString(hexVal[:]), 16)
-	return int(n.Uint64() % uint64(Config.MaxNumOfNodes)), nil
+func (n *Node) crash() {
+	n.alive = false
 }
 
-func join() {
-	// compute id
-	// get all ips of the cluster
-	// call join endpoint of each node and get response ids
-	// add this node's predecessor and successor
-	// notifies ex-neighbours to remove them (check if this is really required as it's an overhead)
+func (n *Node) recover() {
+	n.alive = true
+}
+
+func bucketId(key string) (*big.Int, string) {
+	sum := sha256.Sum256([]byte(key))
+	hexVal := hex.EncodeToString(sum[:])
+	n := new(big.Int)
+	n.SetString(hexVal, 16)
+	return n, hexVal
 }

@@ -1,16 +1,11 @@
 # service configs
 port: 52520
-max_num_of_nodes: 16
-request_timeout_sec: 2
+request_timeout_sec: 5
 ttl_min: 180
 
-# neighbour configs
-finger_table_enabled: false
-neighbour_check: false
-predecessor: "compute-1-1"
-predecessor_port: ""
-successor: "compute-1-1"
-successor_port: ""
+# neighbor configs
+probe_interval_sec: 10
+detect_crash_timeout_sec: 2
 
 # logger configs
 colors_enabled: true

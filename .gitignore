@@ -1,2 +1,7 @@
 .idea
 vendor
+./tester/store/store
+./tester/store/tester
+dht
+./tester/stability/stability
+./scripts/*.pdf
