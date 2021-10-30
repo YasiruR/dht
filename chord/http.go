@@ -38,10 +38,6 @@ const (
 	noCrashResponse = `no-crash-detected`
 )
 
-var (
-	crashChan = make(chan bool)
-)
-
 type nodeInfoRes struct {
 	NodeHash  string   `json:"node_hash"`
 	Successor string   `json:"successor"`
@@ -503,6 +499,7 @@ func updatePredecessor(w http.ResponseWriter, r *http.Request) {
 }
 
 func simulateCrash(w http.ResponseWriter, _ *http.Request) {
+	logger.Log.Debug(`request received for simulate-crash endpoint`, node.alive)
 	if !node.alive {
 		return
 	}
@@ -512,11 +509,11 @@ func simulateCrash(w http.ResponseWriter, _ *http.Request) {
 }
 
 func recoverCrash(w http.ResponseWriter, _ *http.Request) {
+	logger.Log.Debug(`request received for recover crash endpoint`, node.alive)
 	if node.alive {
 		return
 	}
 
-	crashChan <- true
 	node.recover()
 	w.WriteHeader(http.StatusOK)
 }

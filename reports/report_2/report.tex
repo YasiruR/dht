@@ -75,7 +75,7 @@ Following HTTP endpoints are exposed to serve store functionalities as well as t
 	\item GET /storage/key - returns the value of a key (returned in raw body)
 	\item POST /join?nprime=HOST:PORT - joins the network using an existing node
 	\item POST /leave - leaves out the requested node from network
-	\item GET /neighbors - returns the neighbours of a node
+	\item GET /neighbors - returns neighbours of a node
 	\item GET /node-info - returns a JSON response of requested node information
 	\item GET /cluster-info - returns cluster information
 \end{itemize}
@@ -83,7 +83,7 @@ Following HTTP endpoints are exposed to serve store functionalities as well as t
 \section{Project Description}
 \subsection{Design}
 
-Each individual node in the network is given an id based on the SHA256 hash value of its own hostname and is only aware of its neighbours, i.e. predecessor and successor. Whenever a query is received by a node, it initially checks whether the requested key belongs to itself and if not, it proceeds to the immediate successor. This process is iterated until the correct node for key is discovered and the corresponding response is returned along the same route.\\
+Each individual node in the network is given an id based on the SHA256 hash value of its own hostname and is only aware of its neighbours, i.e. predecessor and successor. Whenever a query is received by a node, it initially checks whether the requested key belongs to itself and if not, it proceeds to the immediate successor. This process is iterated until the correct node for key is discovered and the corresponding response is returned along the same route.
 
 When joining the network, a request is sent to the new node along with an existing node in the cluster and thus a join is initiated to this entry point where it starts circulating the request until the corresponding successor of new node is reached. This successor then updates its new predecessor while notifying the ex-predecessor to update its successor. Once this circulation is successful, neighbors of the new node will be returned by the response and updated in the joining node.\\
 
@@ -234,7 +234,9 @@ Figure 2 illustrates the average times taken by experiment 3 for different numbe
 	\caption{Histogram of corrected average times for different nodes in experiment 3}
 \end{figure}
 
-This graph shows that the implemented key-value store responds with a more or less time duration with a slightly increasing rate for different number of simultaneous crashes. Also it was observed that for higher number of crashes (preferably higher than 20), a few number of nodes had failed with elimination and re-establishment of the active nodes. This resulted in malfunctioning of a portion of partitioned networks while the rest had succeeded in rebuilding the connections.
+This graph shows that the implemented key-value store responds with a more or less time duration with a slightly increasing rate for different number of simultaneous crashes. Also it was observed that for higher number of crashes (preferably higher than 20), a few number of nodes had failed with elimination and re-establishment of the active nodes. This resulted in malfunctioning of a portion of partitioned networks while the rest had succeeded in rebuilding the connections.\\
+
+Apart from them, additional experiments were carried out for the simultaneous recovery of the cluster after few crashes and it was observed that this mechanism leads to partitioned networks when \textit{/sim-recover} requests are sent in parallel. This observation can be explained as; by the time detection of a crashed node is corrected in the last active node of a partitioned network it may not be aware that a separate recovery is occurring in the adjacent network and hence lacks the communication between partitioned networks due to the implemented pull-based approach with timeouts. This could have been minimized if a push-based mechanism by the crashed node was used for recovery.
 
 \section{Conclusion}
 
