@@ -36,7 +36,7 @@ the execution of this tester.
 1. `cd tester/stability`
 2. `go build -o stab-tester`
 3. Move this executable file to a node in the cluster
-4. Add a text file with corresponding nodes (a simple file is provided) and name it as started_nodes.txt
+4. Add a text file with corresponding nodes (a sample file is provided) and name it as started_nodes.txt
 5. `./stab-tester <join/crash> <number_of_nodes to join or crash>`     
    Note: HTTP method type should either be GET or PUT
 
