@@ -36,6 +36,8 @@ const (
 // responses
 const (
 	noCrashResponse = `no-crash-detected`
+	headContentType = `Content-Type`
+	headAppJson     = `application/json`
 )
 
 type nodeInfoRes struct {
@@ -109,6 +111,7 @@ func getNodeInfo(w http.ResponseWriter, r *http.Request) {
 		Others:    []string{neighbors.predHostname},
 	}
 
+	w.Header().Set(headContentType, headAppJson)
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(res)
 	if err != nil {
@@ -170,7 +173,7 @@ func retrieveVal(w http.ResponseWriter, r *http.Request) {
 	} else {
 		val, statusCode, err = neighbors.proceedGetKey(key, r)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(statusCode)
 			logger.Log.ErrorContext(ctx, err, key)
 			_, err = w.Write([]byte(err.Error()))
 			if err != nil {
